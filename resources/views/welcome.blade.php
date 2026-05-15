@@ -1,457 +1,427 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hanan Cafe Easy Way of making Agency Services Big</title>
+    <title>Hanan Cafe | Nigeria's Leading Digital Agency for NIN, BVN & CAC</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Hanan Cafe provides professional and secure agency services including NIN verification, BVN enrollment, JAMB pins, and CAC business registrations in Nigeria.">
+    <meta name="keywords" content="NIN Nigeria, BVN enrollment, JAMB pin, CAC registration, Hanan Cafe, Zuru agency, digital services Nigeria">
+    <meta name="author" content="Hanan Cafe">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ url('/') }}">
+    <meta property="og:title" content="Hanan Cafe | Premium Agency Services & Solutions">
+    <meta property="og:description" content="Streamlined, secure, and professional solutions for NIN, BVN, JAMB, and CAC registrations.">
+    <meta property="og:image" content="{{ asset('assets/images/img/logo.png') }}">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="{{ url('/') }}">
+    <meta property="twitter:title" content="Hanan Cafe | Premium Agency Services & Solutions">
+    <meta property="twitter:description" content="Streamlined, secure, and professional solutions for NIN, BVN, JAMB, and CAC registrations.">
+    <meta property="twitter:image" content="{{ asset('assets/images/img/logo.png') }}">
+
+    <!-- Scripts & Fonts -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="icon" href="{{ asset('assets/images/img/logo.png') }}" type="image">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" href="{{ asset('assets/images/img/logo.png') }}" type="image/x-icon">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f1f8f2',
+                            100: '#ddeee0',
+                            200: '#bdddc4',
+                            300: '#91c39e',
+                            400: '#64a375',
+                            500: '#365839', // Base Brand Color
+                            600: '#327a4a',
+                            700: '#2a623d',
+                            800: '#244e33',
+                            900: '#1f412c',
+                            950: '#102419',
+                        },
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        heading: ['Outfit', 'sans-serif'],
+                    },
+                    animation: {
+                        'fade-in-up': 'fadeInUp 0.8s ease-out forwards',
+                        'float': 'float 6s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-20px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
     <style>
-        /* Apply Inter font globally */
-        body {
-            font-family: 'Inter', sans-serif;
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
         }
 
-        /* --- Loader Styles --- */
+        .text-gradient {
+            background: linear-gradient(135deg, #365839 0%, #64a375 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .btn-primary {
+            @apply bg-primary-500 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-300 hover:bg-primary-600 hover:shadow-lg hover:shadow-primary-500/30 active:scale-95;
+        }
+
+        .btn-secondary {
+            @apply bg-white text-primary-500 border border-primary-100 px-8 py-3 rounded-xl font-semibold transition-all duration-300 hover:bg-primary-50 hover:border-primary-200 active:scale-95;
+        }
+
         #loader-wrapper {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(255, 255, 255, 0.95);
-            /* Semi-transparent white */
+            inset: 0;
+            background: white;
             display: flex;
             justify-content: center;
             align-items: center;
-            z-index: 9999;
-            /* Ensure it's on top */
-            opacity: 1;
+            z-index: 100;
             transition: opacity 0.5s ease-out;
-            /* Fade out transition */
         }
 
-        #loader-wrapper.hidden {
-            opacity: 0;
-            pointer-events: none;
-            /* Allow interaction with page below after hidden */
+        .loader-dots {
+            display: flex;
+            gap: 8px;
         }
 
-        .loader {
-            border: 6px solid #f3f3f3;
-            /* Light grey */
-            border-top: 6px solid #365839;
-            /* Dark green */
+        .dot {
+            width: 12px;
+            height: 12px;
+            background: #365839;
             border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            animation: spin 1s linear infinite;
+            animation: bounce 0.6s infinite alternate;
         }
 
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
+        .dot:nth-child(2) { animation-delay: 0.2s; }
+        .dot:nth-child(3) { animation-delay: 0.4s; }
 
-            100% {
-                transform: rotate(360deg);
-            }
+        @keyframes bounce {
+            to { transform: translateY(-10px); opacity: 0.5; }
         }
 
-        /* --- End Loader Styles --- */
-
-        /* Simple fade-in animation */
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .fade-in {
-            animation: fadeIn 0.8s ease-out forwards;
-            opacity: 0;
-            /* Start hidden for animation */
-        }
-
-        /* Delay animations for elements */
-        .delay-1 {
-            animation-delay: 0.2s;
-        }
-
-        .delay-2 {
-            animation-delay: 0.4s;
-        }
-
-        .delay-3 {
-            animation-delay: 0.6s;
-        }
-
-        .delay-4 {
-            animation-delay: 0.8s;
-        }
-
-        .delay-5 {
-            animation-delay: 1.0s;
-        }
-
-        /* Added delay for services */
-        .delay-6 {
-            animation-delay: 1.2s;
-        }
-
-        .delay-7 {
-            animation-delay: 1.4s;
-        }
-
-        .delay-8 {
-            animation-delay: 1.6s;
-        }
-
-        /* Ensure animated elements start hidden until animation begins */
-        .fade-in.delay-1,
-        .fade-in.delay-2,
-        .fade-in.delay-3,
-        .fade-in.delay-4,
-        .fade-in.delay-5,
-        .fade-in.delay-6,
-        .fade-in.delay-7,
-        .fade-in.delay-8 {
-            opacity: 0;
-        }
-
-        a[href^="mailto:"]:hover {
-            color: #365839;
-        }
-
-        @keyframes fadeIn {
-            to {
-                opacity: 1;
-            }
+        .service-card {
+            @apply bg-white p-8 rounded-3xl border border-slate-100 transition-all duration-500 hover:border-primary-200 hover:shadow-2xl hover:shadow-primary-500/10 hover:-translate-y-2;
         }
     </style>
 </head>
 
-<body class="bg-gradient-to-br from-green-50 via-white to-green-50 text-gray-800 antialiased">
+<body class="bg-slate-50 text-slate-900 selection:bg-primary-100 selection:text-primary-900">
 
+    <!-- Loader -->
     <div id="loader-wrapper">
-        <div class="loader"></div>
+        <div class="loader-dots">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+        </div>
     </div>
-    <nav class="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50 fade-in">
+
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 transition-all duration-300" id="navbar">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex-shrink-0 flex items-center">
-                    <img src="{{ asset('assets/images/img/logo1.jpg') }}" alt="Logo" class="h-8 w-auto" />
-                    <span class="ml-2 text-xl font-semibold text-gray-700">Hanan Cafe</span>
+            <div class="flex items-center justify-between h-20 glass mt-4 rounded-2xl px-6">
+                <div class="flex items-center gap-3">
+                    <img src="{{ asset('assets/images/img/logo1.jpg') }}" alt="Logo" class="h-10 w-auto rounded-lg" />
+                    <span class="text-xl font-heading font-bold text-slate-800 tracking-tight">Hanan Cafe</span>
                 </div>
-                <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
-                    <a href="#"
-                        style="border-bottom: 2px solid #365839; color: #111827; display: inline-flex; align-items: center; padding: 0.25rem 0.25rem 0 0.25rem; font-size: 0.875rem; font-weight: 500; text-decoration: none;">
-                        Home
-                    </a>
+                
+                <div class="hidden md:flex items-center gap-8">
+                    <a href="#" class="text-sm font-medium text-primary-600">Home</a>
+                    <a href="#services" class="text-sm font-medium text-slate-600 hover:text-primary-500 transition-colors">Services</a>
+                    <a href="#about" class="text-sm font-medium text-slate-600 hover:text-primary-500 transition-colors">About</a>
+                    <a href="#contact" class="text-sm font-medium text-slate-600 hover:text-primary-500 transition-colors">Contact</a>
+                </div>
 
-                    <a href="#services"
-                        style="border-bottom: 2px solid transparent; color: #6b7280; display: inline-flex; align-items: center; padding: 0.25rem 0.25rem 0 0.25rem; font-size: 0.875rem; font-weight: 500; text-decoration: none;">
-                        Services
-                    </a>
-
-                    <a href="#services"
-                        style="border-bottom: 2px solid transparent; color: #6b7280; display: inline-flex; align-items: center; padding: 0.25rem 0.25rem 0 0.25rem; font-size: 0.875rem; font-weight: 500; text-decoration: none;">
-                        About
-                    </a>
-
-                    <a href="#contact"
-                        style="border-bottom: 2px solid transparent; color: #6b7280; display: inline-flex; align-items: center; padding: 0.25rem 0.25rem 0 0.25rem; font-size: 0.875rem; font-weight: 500; text-decoration: none;">
-                        Contact
-                    </a>
-
+                <div class="flex items-center gap-4">
+                    <a href="{{ route('auth.login') }}" class="hidden sm:block text-sm font-semibold text-slate-600 hover:text-primary-500 transition-colors">Log in</a>
+                    <a href="{{ route('auth.register') }}" class="bg-primary-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-primary-600 transition-all shadow-md shadow-primary-500/20">Get Started</a>
                 </div>
             </div>
         </div>
     </nav>
 
-    <main class="overflow-hidden">
-        <section class="relative py-20 sm:py-28 lg:py-32">
-            <div class="absolute inset-0 bg-gradient-to-b from-white via-transparent to-transparent opacity-50 z-0">
-            </div>
-            <div class="absolute top-0 left-0 -translate-x-1/3 -translate-y-1/3 z-0 opacity-30">
-                <div class="w-64 h-64 bg-green-200 rounded-full filter blur-3xl"></div>
-            </div>
-            <div class="absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 z-0 opacity-30">
-                <div class="w-80 h-80 bg-green-200 rounded-full filter blur-3xl"></div>
+    <main>
+        <!-- Hero Section -->
+        <section class="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden">
+            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10">
+                <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary-100/50 rounded-full blur-[120px] animate-pulse"></div>
+                <div class="absolute bottom-[10%] right-[-5%] w-[30%] h-[30%] bg-emerald-100/50 rounded-full blur-[100px]"></div>
             </div>
 
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-                <div class="lg:grid lg:grid-cols-12 lg:gap-16 items-center">
-                    <div class="lg:col-span-6 text-center lg:text-left">
-                        <h1
-                            class="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-gray-900 fade-in delay-1">
-                            Welcome to <span style="color:#365839">Hanan Cafe</span>
-                        </h1>
-                        <p class="mt-4 text-lg sm:text-xl text-gray-600 fade-in delay-2">
-                            Discover innovative solutions and services designed to elevate your experience. We're glad
-                            to have you here.
-                        </p>
-                        <div class="mt-8 flex gap-4 justify-center lg:justify-start fade-in delay-3">
-                            <a href="{{ route('auth.login') }}"
-                                style="
-                            display: inline-block;
-                            border-radius: 0.5rem;
-                            background-color: #365839;
-                            padding: 0.75rem 1.25rem;
-                            font-size: 1rem;
-                            font-weight: 500;
-                            color: white;
-                            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                            transition: all 150ms ease-in-out;
-                        ">
-                                Login
-                            </a>
-                            <a href="{{ route('auth.register') }}"
-                                style="
-                            display: inline-block;
-                            border-radius: 0.5rem;
-                            background-color: white;
-                            padding: 0.75rem 1.25rem;
-                            font-size: 1rem;
-                            font-weight: 500;
-                            color: #365839;
-                            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                            border: 1px solid #d1d5db;
-                            transition: all 150ms ease-in-out;
-                        ">
-                                Register
-                            </a>
-                        </div>
-                    </div>
-
-                    <div class="mt-12 lg:mt-0 lg:col-span-5 flex justify-center lg:justify-end fade-in delay-4">
-                        <img src="{{ asset('assets/images/img/img03.jpg') }}" alt="Abstract welcome graphic"
-                            class="rounded-xl shadow-2xl object-cover w-full max-w-md lg:max-w-none"
-                            onerror="this.onerror=null; this.src='https://placehold.co/400x250/cccccc/ffffff?text=Security&font=inter';">
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="services" class="py-16 sm:py-24 bg-white/50 backdrop-blur-sm">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="text-center">
-                    <h2
-                        style=" font-size: 1rem; font-weight: 600; color: #365839; letter-spacing: 0.05em; text-transform: uppercase;opacity: 0; animation: fadeIn 0.5s ease-in-out 0.1s forwards;">
-                        Our Services
-                    </h2>
-
-                    <p class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl fade-in delay-2">
-                        What We Offer
-                    </p>
-                    <p class="mt-4 max-w-2xl mx-auto text-xl text-gray-500 fade-in delay-3">
-                        Providing top-notch solutions tailored to your needs, complete with transparent pricing.
-                    </p>
-                </div>
-
-                <div class="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-
-                    <div
-                        class="flex flex-col bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 fade-in delay-5">
-                        <img src="{{ asset('assets/images/img/nimc.png') }}" alt="Web Development Service Image"
-                            class="h-48 w-full object-cover"
-                            onerror="this.onerror=null; this.src='assets/img/icon/nimc.png';">
-                        <div class="p-6 flex flex-col flex-grow">
-                            <h3>NIN services</h3>
-                            <p class="mt-1 text-sm text-gray-500 flex-grow">Verify NIN using NIN, Phone number and
-                                tracking ID</p>
+                <div class="grid lg:grid-cols-2 gap-16 items-center">
+                    <div class="animate-fade-in-up" style="animation-delay: 0.1s">
+                        <div class="inline-flex items-center gap-2 bg-primary-50 text-primary-700 px-4 py-2 rounded-full text-sm font-semibold mb-6 border border-primary-100">
+                            <span class="relative flex h-2 w-2">
+                                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-400 opacity-75"></span>
+                                <span class="relative inline-flex rounded-full h-2 w-2 bg-primary-500"></span>
+                            </span>
+                            Trusted by 10,000+ Users
+                        </div>
+                        <h1 class="text-5xl lg:text-7xl font-heading font-bold text-slate-900 leading-[1.1] mb-6">
+                            Elevate Your <span class="text-gradient">Agency Experience</span>
+                        </h1>
+                        <p class="text-lg text-slate-600 leading-relaxed mb-10 max-w-lg">
+                            Hanan Cafe provides professional-grade solutions for NIN, BVN, JAMB, and CAC registrations. Streamlined, secure, and built for your growth.
+                        </p>
+                        <div class="flex flex-wrap gap-4">
+                            <button class="btn-primary">Explore Services</button>
+                            <button class="btn-secondary">Learn More</button>
+                        </div>
+                        
+                        <div class="mt-12 flex items-center gap-6 border-t border-slate-200 pt-8">
+                            <div class="flex -space-x-3">
+                                <img class="w-10 h-10 rounded-full border-2 border-white bg-slate-200" src="https://i.pravatar.cc/100?img=1" alt="User">
+                                <img class="w-10 h-10 rounded-full border-2 border-white bg-slate-200" src="https://i.pravatar.cc/100?img=2" alt="User">
+                                <img class="w-10 h-10 rounded-full border-2 border-white bg-slate-200" src="https://i.pravatar.cc/100?img=3" alt="User">
+                                <div class="w-10 h-10 rounded-full border-2 border-white bg-primary-500 flex items-center justify-center text-[10px] text-white font-bold">+2k</div>
+                            </div>
+                            <p class="text-sm text-slate-500 font-medium">Join our growing community today</p>
                         </div>
                     </div>
 
-                    <div
-                        class="flex flex-col bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 fade-in delay-6">
-                        <img src="{{ asset('assets/images/img/bvn.png') }}" alt="Mobile App Service Image"
-                            class="h-48 w-full object-cover"
-                            onerror="this.onerror=null; this.src='assets/img/icon/BVN.png';">
-                        <div class="p-6 flex flex-col flex-grow">
-                            <h3 class="text-lg font-medium text-gray-900">BVN services</h3>
-                            <p class="mt-1 text-sm text-gray-500 flex-grow">Verify BVN, and download slip and bvn
-                                plastics Get BVN enrolment Access for your business</p>
+                    <div class="relative animate-fade-in-up" style="animation-delay: 0.3s">
+                        <div class="relative z-10 rounded-[2.5rem] overflow-hidden shadow-2xl animate-float">
+                            <img src="{{ asset('assets/images/img/img03.jpg') }}" alt="Professional digital agency services in Nigeria - Hanan Cafe" class="w-full h-auto object-cover" 
+                                 onerror="this.src='https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&q=80&w=1000'">
                         </div>
-                    </div>
-
-                    <div
-                        class="flex flex-col bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 fade-in delay-7">
-                        <img src="{{ asset('assets/images/img/jamb.png') }}" alt="Cloud Solutions Service Image"
-                            class="h-48 w-full object-cover"
-                            onerror="this.onerror=null; this.src='https://placehold.co/400x250/cccccc/ffffff?text=Cloud&font=inter';">
-                        <div class="p-6 flex flex-col flex-grow">
-                            <h3 class="text-lg font-medium text-gray-900">Get Jamb & DE</h3>
-                            <p class="mt-1 text-sm text-gray-500 flex-grow">Empower your Business now. Buy jamb and DE
-                                pin from us and get commission</p>
-                        </div>
-                    </div>
-
-                    <div
-                        class="flex flex-col bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 fade-in delay-8">
-                        <img src="{{ asset('assets/images/img/cac.png') }}" alt="Security Service Image"
-                            class="h-48 w-full object-cover"
-                            onerror="this.onerror=null; this.src='https://placehold.co/400x250/cccccc/ffffff?text=Security&font=inter';">
-                        <div class="p-6 flex flex-col flex-grow">
-                            <h3 class="text-lg font-medium text-gray-900">Register Your Business</h3>
-                            <p class="mt-1 text-sm text-gray-500 flex-grow">Upgrade your business With CAC registration.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="contact" class="py-16 sm:py-24 relative bg-gradient-to-b from-green-50 via-white to-white">
-            <div class="absolute top-1/4 left-0 -translate-x-1/4 opacity-20">
-                <div class="w-64 h-64 bg-green-200 rounded-full filter blur-3xl"></div>
-            </div>
-            <div class="absolute bottom-1/4 right-0 translate-x-1/4 opacity-20">
-                <div class="w-72 h-72 bg-green-200 rounded-full filter blur-3xl"></div>
-            </div>
-
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-                <div class="text-center mb-12">
-                    <h2
-                        style="
-                    font-size: 1rem;
-                    font-weight: 600;
-                    color: #365839;
-                    letter-spacing: 0.05em;
-                    text-transform: uppercase;
-                    opacity: 0;
-                    animation: fadeIn 0.5s ease-in-out 0.1s forwards;
-                ">
-                        Contact Us
-                    </h2>
-
-                    <p class="mt-2 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl fade-in delay-2">
-                        Get in Touch or File a Complaint
-                    </p>
-                    <p class="mt-4 max-w-2xl mx-auto text-xl text-gray-500 fade-in delay-3">
-                        We're here to help and answer any question you might have or listen to your feedback.
-                    </p>
-                </div>
-
-                <div class="lg:grid lg:grid-cols-2 lg:gap-16 items-start">
-                    <div class="mb-12 lg:mb-0">
-                        <h3 class="text-2xl font-semibold text-gray-900 mb-4 fade-in delay-4">Contact Information</h3>
-                        <div class="space-y-4 text-gray-600 fade-in delay-5">
-                            <p>
-                                <strong class="font-medium text-gray-800">Address:</strong><br>
-                                tashar Rimi street opposite airtel shop zuru
-                            </p>
-                            <p>
-                                <strong class="font-medium text-gray-800">Phone:</strong><br>
-                                <a href="tel:+2347030574761" style="color: #4b5563; text-decoration: none;">
-                                    +234 7030574761
-                                </a>
-
-                            </p>
-                            <p>
-                                <strong class="font-medium text-gray-800">Email:</strong><br>
-                                <a href="mailto:hanantech@gmail.com" style="color: #365839; text-decoration: none;">
-                                    hanantech@gmail.com
-                                </a>
-
-                            </p>
-                        </div>
-
-                        <h3 class="text-2xl font-semibold text-gray-900 mt-10 mb-4 fade-in delay-6">Follow Us</h3>
-                        <div class="flex space-x-5 text-gray-500 fade-in delay-7">
-                            <a href="#" class="hover:text-green-700 transition duration-150 ease-in-out"
-                                aria-label="Facebook">
-                                <i class="fa fa-facebook-f fa-lg"></i>
-                            </a>
-                            <a href="#" class="hover:text-green-700 transition duration-150 ease-in-out"
-                                aria-label="Twitter">
-                                <i class="fab fa-twitter fa-lg"></i>
-                            </a>
-                            <a href="#" class="hover:text-green-700 transition duration-150 ease-in-out"
-                                aria-label="LinkedIn">
-                                <i class="fab fa-linkedin-in fa-lg"></i>
-                            </a>
-                            <a href="#" class="hover:text-green-700 transition duration-150 ease-in-out"
-                                aria-label="Instagram">
-                                <i class="fab fa-instagram fa-lg"></i>
-                            </a>
-                            <a href="#" class="hover:text-green-700 transition duration-150 ease-in-out"
-                                aria-label="GitHub">
-                                <i class="fab fa-github fa-lg"></i>
-                            </a>
-                        </div>
-                    </div>
-
-                    <div class="bg-white p-8 rounded-xl shadow-lg fade-in delay-8">
-                        <form action="#" method="POST">
-                            <div class="grid grid-cols-1 gap-y-6">
-                                <div>
-                                    <label for="contact-name" class="block text-sm font-medium text-gray-700">Full
-                                        Name</label>
-                                    <div class="mt-1">
-                                        <input type="text" name="name" id="contact-name" autocomplete="name"
-                                            required
-                                            class="block w-full rounded-md border-gray-300 shadow-sm py-2 px-3 ">
-                                    </div>
+                        <!-- Decorative Elements -->
+                        <div class="absolute -bottom-10 -right-10 w-64 h-64 bg-primary-500/10 rounded-full blur-3xl -z-10"></div>
+                        <div class="absolute top-10 -left-10 glass p-6 rounded-3xl shadow-xl animate-float" style="animation-delay: 1s">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600">
+                                    <i class="fas fa-shield-alt text-xl"></i>
                                 </div>
                                 <div>
-                                    <label for="contact-email" class="block text-sm font-medium text-gray-700">Email
-                                        Address</label>
-                                    <div class="mt-1">
-                                        <input type="email" name="email" id="contact-email" autocomplete="email"
-                                            required
-                                            class="block w-full rounded-md border-gray-300 shadow-sm py-2 px-3 ">
-                                    </div>
-                                </div>
-                                <div>
-                                    <label for="contact-subject"
-                                        class="block text-sm font-medium text-gray-700">Subject / Complaint
-                                        Type</label>
-                                    <div class="mt-1">
-                                        <input type="text" name="subject" id="contact-subject" required
-                                            class="block w-full rounded-md border-gray-300 shadow-sm py-2 px-3">
-                                    </div>
-                                </div>
-                                <div>
-                                    <label for="contact-message"
-                                        class="block text-sm font-medium text-gray-700">Message / Complaint
-                                        Details</label>
-                                    <div class="mt-1">
-                                        <textarea id="contact-message" name="message" rows="4" required
-                                            class="block w-full rounded-md border-gray-300 shadow-sm py-2 px-3 "></textarea>
-                                    </div>
-                                </div>
-                                <div>
-                                    <button type="submit"
-                                        style="
-                                    width: 100%;
-                                    display: inline-flex;
-                                    justify-content: center;
-                                    border-radius: 0.5rem;
-                                    border: 1px solid transparent;
-                                    background-color: #365839;
-                                    padding: 0.75rem 1.5rem;
-                                    font-size: 1rem;
-                                    font-weight: 500;
-                                    color: white;
-                                    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-                                    cursor: pointer;
-                                    transition: background-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-                                  ">
-                                        Submit Message / Complaint
-                                    </button>
+                                    <p class="text-sm font-bold text-slate-800">100% Secure</p>
+                                    <p class="text-xs text-slate-500">Verified Process</p>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Services Section -->
+        <section id="services" class="py-24 bg-white relative">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center max-w-3xl mx-auto mb-20">
+                    <h2 class="text-primary-500 font-bold tracking-widest uppercase text-sm mb-4">Our Expertise</h2>
+                    <h3 class="text-4xl lg:text-5xl font-heading font-bold text-slate-900 mb-6">Services Tailored for You</h3>
+                    <p class="text-slate-500 text-lg">We simplify complex governmental and business processes through our dedicated service portals.</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+                    <!-- NIN -->
+                    <div class="service-card">
+                        <div class="w-16 h-16 rounded-2xl bg-primary-50 flex items-center justify-center mb-8 group-hover:bg-primary-500 transition-colors">
+                            <img src="{{ asset('assets/images/img/nimc.png') }}" alt="NIN" class="w-10 h-10 object-contain" onerror="this.src='https://cdn-icons-png.flaticon.com/512/1160/1160358.png'">
+                        </div>
+                        <h4 class="text-xl font-bold text-slate-900 mb-4">NIN Services</h4>
+                        <p class="text-slate-500 leading-relaxed mb-6">Professional NIN verification and management services with tracking integration.</p>
+                        <a href="#" class="text-primary-500 font-bold inline-flex items-center gap-2 group">
+                            Learn More <i class="fas fa-arrow-right text-sm transition-transform group-hover:translate-x-1"></i>
+                        </a>
+                    </div>
+
+                    <!-- BVN -->
+                    <div class="service-card">
+                        <div class="w-16 h-16 rounded-2xl bg-primary-50 flex items-center justify-center mb-8">
+                            <img src="{{ asset('assets/images/img/bvn.png') }}" alt="BVN" class="w-10 h-10 object-contain" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2830/2830284.png'">
+                        </div>
+                        <h4 class="text-xl font-bold text-slate-900 mb-4">BVN Verification</h4>
+                        <p class="text-slate-500 leading-relaxed mb-6">Swift BVN enrollment access and slip downloads for businesses and individuals.</p>
+                        <a href="#" class="text-primary-500 font-bold inline-flex items-center gap-2 group">
+                            Learn More <i class="fas fa-arrow-right text-sm transition-transform group-hover:translate-x-1"></i>
+                        </a>
+                    </div>
+
+                    <!-- JAMB -->
+                    <div class="service-card">
+                        <div class="w-16 h-16 rounded-2xl bg-primary-50 flex items-center justify-center mb-8">
+                            <img src="{{ asset('assets/images/img/jamb.png') }}" alt="JAMB" class="w-10 h-10 object-contain" onerror="this.src='https://cdn-icons-png.flaticon.com/512/2940/2940651.png'">
+                        </div>
+                        <h4 class="text-xl font-bold text-slate-900 mb-4">JAMB & DE Pins</h4>
+                        <p class="text-slate-500 leading-relaxed mb-6">Empower your educational journey. Buy JAMB and DE pins with instant delivery.</p>
+                        <a href="#" class="text-primary-500 font-bold inline-flex items-center gap-2 group">
+                            Learn More <i class="fas fa-arrow-right text-sm transition-transform group-hover:translate-x-1"></i>
+                        </a>
+                    </div>
+
+                    <!-- CAC -->
+                    <div class="service-card">
+                        <div class="w-16 h-16 rounded-2xl bg-primary-50 flex items-center justify-center mb-8">
+                            <img src="{{ asset('assets/images/img/cac.png') }}" alt="CAC" class="w-10 h-10 object-contain" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3061/3061341.png'">
+                        </div>
+                        <h4 class="text-xl font-bold text-slate-900 mb-4">CAC Registration</h4>
+                        <p class="text-slate-500 leading-relaxed mb-6">Register your business legally. We handle the paperwork for your CAC upgrades.</p>
+                        <a href="#" class="text-primary-500 font-bold inline-flex items-center gap-2 group">
+                            Learn More <i class="fas fa-arrow-right text-sm transition-transform group-hover:translate-x-1"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- About Section -->
+        <section id="about" class="py-24 bg-primary-50/30 overflow-hidden">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="grid lg:grid-cols-2 gap-16 items-center">
+                    <div class="relative order-2 lg:order-1 animate-fade-in-up">
+                        <div class="relative z-10 rounded-[2.5rem] overflow-hidden shadow-2xl">
+                            <img src="{{ asset('assets/images/img/img (8).jpg') }}" alt="About Hanan Cafe" class="w-full h-[500px] object-cover"
+                                 onerror="this.src='https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&q=80&w=1000'">
+                        </div>
+                        <!-- Stats Overlay -->
+                        <div class="absolute -bottom-8 -right-8 glass p-8 rounded-3xl shadow-xl z-20 hidden md:block">
+                            <div class="grid grid-cols-2 gap-8">
+                                <div>
+                                    <p class="text-3xl font-bold text-primary-500">5+</p>
+                                    <p class="text-xs text-slate-500 font-bold uppercase tracking-wider">Years Experience</p>
+                                </div>
+                                <div>
+                                    <p class="text-3xl font-bold text-primary-500">10k+</p>
+                                    <p class="text-xs text-slate-500 font-bold uppercase tracking-wider">Happy Clients</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="order-1 lg:order-2 animate-fade-in-up" style="animation-delay: 0.2s">
+                        <h2 class="text-primary-500 font-bold tracking-widest uppercase text-sm mb-4">Who We Are</h2>
+                        <h3 class="text-4xl lg:text-5xl font-heading font-bold text-slate-900 mb-8">Your Trusted Partner in <span class="text-gradient">Digital Growth</span></h3>
+                        <p class="text-slate-600 text-lg leading-relaxed mb-8">
+                            Hanan Cafe was founded on the principle of making essential digital services accessible to everyone. We bridge the gap between complex governmental requirements and the everyday user.
+                        </p>
+                        
+                        <div class="space-y-6 mb-10">
+                            <div class="flex items-start gap-4">
+                                <div class="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 flex-shrink-0 mt-1">
+                                    <i class="fas fa-check text-[10px]"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-slate-900">Efficiency First</h4>
+                                    <p class="text-sm text-slate-500">We prioritize speed without compromising on security or accuracy.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-4">
+                                <div class="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 flex-shrink-0 mt-1">
+                                    <i class="fas fa-check text-[10px]"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-slate-900">Expert Guidance</h4>
+                                    <p class="text-sm text-slate-500">Our team consists of specialists who understand the ins and outs of agency services.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-4">
+                                <div class="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 flex-shrink-0 mt-1">
+                                    <i class="fas fa-check text-[10px]"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-slate-900">Secure Processes</h4>
+                                    <p class="text-sm text-slate-500">Your data privacy and security are at the heart of everything we do.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <a href="#contact" class="btn-primary inline-block">Get in Touch</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Contact Section -->
+        <section id="contact" class="py-24 bg-slate-50 relative overflow-hidden">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+                <div class="grid lg:grid-cols-2 gap-20">
+                    <div>
+                        <h2 class="text-primary-500 font-bold uppercase tracking-widest text-sm mb-4">Contact Us</h2>
+                        <h3 class="text-4xl lg:text-5xl font-heading font-bold text-slate-900 mb-8">Ready to Start a <span class="text-gradient">Project?</span></h3>
+                        <p class="text-slate-600 text-lg mb-12">Have questions about our services? Our team is here to provide you with expert guidance and support.</p>
+                        
+                        <div class="space-y-8">
+                            <div class="flex items-start gap-6">
+                                <div class="w-12 h-12 rounded-2xl bg-white shadow-md flex items-center justify-center text-primary-500 flex-shrink-0">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                </div>
+                                <div>
+                                    <p class="font-bold text-slate-900">Headquarters</p>
+                                    <p class="text-slate-500">Tashar Rimi Street, Zuru, Kebbi State</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-6">
+                                <div class="w-12 h-12 rounded-2xl bg-white shadow-md flex items-center justify-center text-primary-500 flex-shrink-0">
+                                    <i class="fas fa-phone-alt"></i>
+                                </div>
+                                <div>
+                                    <p class="font-bold text-slate-900">Phone Support</p>
+                                    <p class="text-slate-500">+234 703 057 4761</p>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-6">
+                                <div class="w-12 h-12 rounded-2xl bg-white shadow-md flex items-center justify-center text-primary-500 flex-shrink-0">
+                                    <i class="fas fa-envelope"></i>
+                                </div>
+                                <div>
+                                    <p class="font-bold text-slate-900">Email Address</p>
+                                    <p class="text-slate-500">hanantech@gmail.com</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-10 rounded-[2.5rem] shadow-2xl shadow-primary-500/5 border border-slate-100">
+                        <form action="#" method="POST" class="space-y-6">
+                            @csrf
+                            <div class="grid sm:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-2">Full Name</label>
+                                    <input type="text" class="w-full bg-slate-50 border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary-500 transition-all" placeholder="John Doe">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-2">Email Address</label>
+                                    <input type="email" class="w-full bg-slate-50 border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary-500 transition-all" placeholder="john@example.com">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Subject</label>
+                                <input type="text" class="w-full bg-slate-50 border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary-500 transition-all" placeholder="How can we help?">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Message</label>
+                                <textarea rows="4" class="w-full bg-slate-50 border-none rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary-500 transition-all" placeholder="Tell us more about your request..."></textarea>
+                            </div>
+                            <button type="submit" class="btn-primary w-full py-4 text-lg">Send Message</button>
                         </form>
                     </div>
                 </div>
@@ -459,78 +429,102 @@
         </section>
     </main>
 
-    <footer class="bg-gray-800 text-gray-400">
-        <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-            <div class="xl:grid xl:grid-cols-3 xl:gap-8">
-                <div class="space-y-8 xl:col-span-1">
-                    <img src="{{ asset('assets/images/img/logo.png') }}" alt="Logo" class="h-20 w-auto" />
-                    <p class="text-gray-400 text-base">
-                        Making the digital world better, one project at a time.
+    <!-- Footer -->
+    <footer class="bg-slate-950 text-slate-400 pt-20 pb-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
+                <!-- Brand -->
+                <div class="lg:col-span-1">
+                    <div class="flex items-center gap-3 mb-6">
+                        <img src="{{ asset('assets/images/img/logo.png') }}" alt="Logo" class="h-12 w-auto" />
+                        <span class="text-xl font-heading font-bold text-white">Hanan Cafe</span>
+                    </div>
+                    <p class="mb-8 text-sm leading-relaxed">
+                        Leading the way in digital agency services across Nigeria. We provide secure, efficient, and reliable solutions for business and individual needs.
                     </p>
-                    <div class="flex space-x-6">
-                        <a href="#" class="text-gray-400 hover:text-gray-300">
-                            <span class="sr-only">Facebook</span>
-                            <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"></svg>
+                    <div class="flex gap-4">
+                        <a href="#" class="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center hover:bg-primary-500 hover:text-white transition-all">
+                            <i class="fab fa-facebook-f"></i>
                         </a>
-                        <a href="#" class="text-gray-400 hover:text-gray-300">
-                            <span class="sr-only">Twitter</span>
-                            <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"></svg>
+                        <a href="#" class="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center hover:bg-primary-500 hover:text-white transition-all">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                        <a href="#" class="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center hover:bg-primary-500 hover:text-white transition-all">
+                            <i class="fab fa-instagram"></i>
+                        </a>
+                        <a href="#" class="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center hover:bg-primary-500 hover:text-white transition-all">
+                            <i class="fab fa-linkedin-in"></i>
                         </a>
                     </div>
                 </div>
-                <div class="mt-12 grid grid-cols-2 gap-8 xl:mt-0 xl:col-span-2">
-                    <div class="md:grid md:grid-cols-2 md:gap-8">
-                        <div>
-                            <h3 class="text-sm font-semibold text-gray-300 tracking-wider uppercase">Solutions</h3>
-                            <ul role="list" class="mt-4 space-y-4">
-                                <li><a href="#" class="text-base text-gray-400 hover:text-white">Websites</a>
-                                </li>
-                                <li><a href="#" class="text-base text-gray-400 hover:text-white">Apps</a></li>
-                                <li><a href="#" class="text-base text-gray-400 hover:text-white">Cloud</a></li>
-                                <li><a href="#" class="text-base text-gray-400 hover:text-white">Security</a>
-                                </li>
-                            </ul>
-                        </div>
-                        <div class="mt-12 md:mt-0">
-                            <h3 class="text-sm font-semibold text-gray-300 tracking-wider uppercase">Company</h3>
-                            <ul role="list" class="mt-4 space-y-4">
-                                <li><a href="#" class="text-base text-gray-400 hover:text-white">About</a></li>
-                                <li><a href="#" class="text-base text-gray-400 hover:text-white">Blog</a></li>
-                                <li><a href="#" class="text-base text-gray-400 hover:text-white">Careers</a>
-                                </li>
-                                <li><a href="#" class="text-base text-gray-400 hover:text-white">Contact</a>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                    <div class="md:grid md:grid-cols-2 md:gap-8">
-                        <div>
-                            <h3 class="text-sm font-semibold text-gray-300 tracking-wider uppercase">Legal</h3>
-                            <ul role="list" class="mt-4 space-y-4">
-                                <li><a href="#" class="text-base text-gray-400 hover:text-white">Privacy</a>
-                                </li>
-                                <li><a href="#" class="text-base text-gray-400 hover:text-white">Terms</a></li>
-                            </ul>
-                        </div>
-                    </div>
+
+                <!-- Services -->
+                <div>
+                    <h4 class="text-white font-bold mb-6">Services</h4>
+                    <ul class="space-y-4 text-sm">
+                        <li><a href="#" class="hover:text-primary-400 transition-colors">NIN Verification</a></li>
+                        <li><a href="#" class="hover:text-primary-400 transition-colors">BVN Enrollment</a></li>
+                        <li><a href="#" class="hover:text-primary-400 transition-colors">JAMB Pin Purchase</a></li>
+                        <li><a href="#" class="hover:text-primary-400 transition-colors">CAC Business Reg</a></li>
+                        <li><a href="#" class="hover:text-primary-400 transition-colors">Digital Consultancy</a></li>
+                    </ul>
+                </div>
+
+                <!-- Quick Links -->
+                <div>
+                    <h4 class="text-white font-bold mb-6">Company</h4>
+                    <ul class="space-y-4 text-sm">
+                        <li><a href="#" class="hover:text-primary-400 transition-colors">About Us</a></li>
+                        <li><a href="#services" class="hover:text-primary-400 transition-colors">Our Services</a></li>
+                        <li><a href="#" class="hover:text-primary-400 transition-colors">Privacy Policy</a></li>
+                        <li><a href="#" class="hover:text-primary-400 transition-colors">Terms of Service</a></li>
+                        <li><a href="#contact" class="hover:text-primary-400 transition-colors">Contact Support</a></li>
+                    </ul>
+                </div>
+
+                <!-- Newsletter -->
+                <div>
+                    <h4 class="text-white font-bold mb-6">Newsletter</h4>
+                    <p class="text-sm mb-6">Subscribe to get latest updates and offers.</p>
+                    <form action="#" method="POST" class="flex flex-col gap-3">
+                        @csrf
+                        <input type="email" placeholder="Email address" required class="bg-slate-900 border-none rounded-xl px-4 py-3 text-sm focus:ring-1 focus:ring-primary-500">
+                        <button class="btn-primary w-full py-3 text-sm">Subscribe</button>
+                    </form>
                 </div>
             </div>
-            <div class="mt-12 border-t border-gray-700 pt-8">
-                <p class="text-base text-gray-400 xl:text-center">&copy; {{ date('Y') }} Hanan Cafe Inc. All
-                    rights reserved.
-                </p>
+
+            <div class="pt-8 border-t border-slate-900 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
+                <p>&copy; {{ date('Y') }} Hanan Cafe Agency. All rights reserved.</p>
+                <div class="flex gap-6">
+                    <a href="#" class="hover:text-white">Privacy Policy</a>
+                    <a href="#" class="hover:text-white">Terms</a>
+                    <a href="#" class="hover:text-white">Cookies</a>
+                </div>
             </div>
         </div>
     </footer>
 
     <script>
-        window.onload = function() {
-            const loaderWrapper = document.getElementById('loader-wrapper');
-            if (loaderWrapper) {
-                loaderWrapper.classList.add('hidden');
-            }
-        };
-    </script>
+        // Loader
+        window.addEventListener('load', () => {
+            const loader = document.getElementById('loader-wrapper');
+            loader.style.opacity = '0';
+            setTimeout(() => {
+                loader.style.display = 'none';
+            }, 500);
+        });
 
+        // Navbar scroll effect
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                navbar.classList.add('py-2');
+            } else {
+                navbar.classList.remove('py-2');
+            }
+        });
+    </script>
 </body>
+
 </html>

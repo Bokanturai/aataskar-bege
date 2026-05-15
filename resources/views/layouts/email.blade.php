@@ -16,7 +16,7 @@
                 <div class="navbar-brand-box">
                     <a href="{{ url('/') }}" class="logo logo-light" target="_blank">
                         <span class="logo-lg">
-                            <img src="{{ asset('assets/images/' . $settings->logo ?? 'assets/images/logo.svg') }}"
+                            <img src="{{ asset($settings && $settings->logo ? 'assets/images/' . $settings->logo : 'assets/images/img/logo.png') }}"
                                 alt="" height="50">
                         </span>
                     </a>
@@ -33,9 +33,9 @@
     <div class="row mt-2 card col-md-6 m-auto p-4 rounded text-center">
         Sincerely,
         <br>
-        {{ $settings->site_name ?? config('app.name') }}
+        {{ optional($settings)->site_name ?? config('app.name') }}
         <br>
-        <a href="/"> {{ $settings->short_name ?? config('app.name') }}</a>
+        <a href="/"> {{ optional($settings)->short_name ?? config('app.name') }}</a>
     </div>
 
 </body>

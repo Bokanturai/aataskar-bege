@@ -28,6 +28,9 @@ use App\Http\Controllers\Agency\IpeController;
 use App\Http\Controllers\Action\SmeDataController;
 use App\Http\Controllers\Admin\SmeDataController as AdminSmeDataController;
 use App\Http\Controllers\Agency\BvnServicesController;
+use App\Http\Controllers\Agency\BvncrmController;
+use App\Http\Controllers\Agency\ManualSearchController;
+use App\Http\Controllers\Admin\BvncrmController as AdminBvncrmController;
 
 
 // =========================================================================
@@ -133,6 +136,8 @@ Route::middleware(['auth', 'user.active'])->group(function () {
                 Route::post('/{id}/status', [NINverificationController::class, 'updateStatus'])->name('status');
                 Route::get('/standardSlip/{id}', [NINverificationController::class, 'standardSlip'])->name('standard');
                 Route::get('/premiumSlip/{id}', [NINverificationController::class, 'premiumSlip'])->name('premium');
+                Route::get('/regularSlip/{id}', [NINverificationController::class, 'regularSlip'])->name('regular');
+                Route::get('/basicSlip/{id}', [NINverificationController::class, 'basicSlip'])->name('basic');
                 Route::get('/vninSlip/{id}', [NINverificationController::class, 'vninSlip'])->name('vnin');
             });
 
@@ -142,8 +147,10 @@ Route::middleware(['auth', 'user.active'])->group(function () {
                 Route::post('/', [NINDemoVerificationController::class, 'store'])->name('store');
                 Route::get('/freeSlip/{id}', [NINDemoVerificationController::class, 'freeSlip'])->name('free');
                 Route::get('/regularSlip/{id}', [NINDemoVerificationController::class, 'regularSlip'])->name('regular');
+                Route::get('/basicSlip/{id}', [NINDemoVerificationController::class, 'basicSlip'])->name('basic');
                 Route::get('/standardSlip/{id}', [NINDemoVerificationController::class, 'standardSlip'])->name('standard');
                 Route::get('/premiumSlip/{id}', [NINDemoVerificationController::class, 'premiumSlip'])->name('premium');
+                Route::get('/vninSlip/{id}', [NINDemoVerificationController::class, 'vninSlip'])->name('vnin');
             });
 
             // NIN Phone Verification
@@ -151,8 +158,10 @@ Route::middleware(['auth', 'user.active'])->group(function () {
                 Route::get('/', [NINPhoneVerificationController::class, 'index'])->name('index');
                 Route::post('/', [NINPhoneVerificationController::class, 'store'])->name('store');
                 Route::get('/regularSlip/{id}', [NINPhoneVerificationController::class, 'regularSlip'])->name('regular');
+                Route::get('/basicSlip/{id}', [NINPhoneVerificationController::class, 'basicSlip'])->name('basic');
                 Route::get('/standardSlip/{id}', [NINPhoneVerificationController::class, 'standardSlip'])->name('standard');
                 Route::get('/premiumSlip/{id}', [NINPhoneVerificationController::class, 'premiumSlip'])->name('premium');
+                Route::get('/vninSlip/{id}', [NINPhoneVerificationController::class, 'vninSlip'])->name('vnin');
             });
 
             // NIN Validation
@@ -185,9 +194,17 @@ Route::middleware(['auth', 'user.active'])->group(function () {
             Route::get('/modification/check/{id}', [BvnModificationController::class, 'checkStatus'])->name('modification.check');
             Route::get('/modification-fields/{serviceId}', [BvnModificationController::class, 'getServiceFields'])->name('modification.fields');
             
-            Route::get('/bvn-crm', [BvnServicesController::class, 'index'])->name('bvn-crm');
-            Route::post('/bvn-crm', [BvnServicesController::class, 'store'])->name('crm.store');
-            Route::get('/bvn-crm/check/{id}', [BvnServicesController::class, 'checkStatus'])->name('crm.check');
+            Route::get('/bvn-crm', [BvncrmController::class, 'index'])->name('bvn-crm');
+            Route::post('/bvn-crm', [BvncrmController::class, 'store'])->name('crm.store');
+            Route::get('/bvn-crm/check/{id}', [BvncrmController::class, 'checkStatus'])->name('crm.check');
+
+            // BVN Phone Search (Manual Search)
+            Route::prefix('phone-search')->as('phone.search.')->group(function () {
+                Route::get('/', [ManualSearchController::class, 'index'])->name('index');
+                Route::post('/', [ManualSearchController::class, 'store'])->name('store');
+                Route::get('/check/{id}', [ManualSearchController::class, 'checkStatus'])->name('check');
+                Route::post('/price', [ManualSearchController::class, 'getFieldPrice'])->name('price');
+            });
 
             // TIN Registration
             Route::prefix('tin-reg')->group(function () {
@@ -229,7 +246,8 @@ Route::middleware(['auth', 'user.active'])->group(function () {
 // =========================================================================
 Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'user.active', 'user.admin']], function () {
 
-    Route::get('/receipt/{referenceId}', [TransactionController::class, 'recieptAdmin'])->name('receipt');
+    Route::get('/dashboard', [App\Http\Controllers\Admin\AdminDashboardController::class, 'index'])->name('dashboard');
+    Route::get('/receipt/{referenceId}', [TransactionController::class, 'recieptAdmin'])->name('reciept');
     Route::get('/transactions', [TransactionController::class, 'transactions'])->name('transactions');
 
     // User Management
@@ -243,6 +261,13 @@ Route::group(['prefix' => 'admin', 'as' => 'admin.', 'middleware' => ['auth', 'u
     Route::prefix('services')->name('services.')->group(function () {
         Route::get('/', [ServiceController::class, 'index'])->name('index');
         Route::post('/', [ServiceController::class, 'store'])->name('store');
+        
+        // BVN CRM Management
+        Route::get('/bvn-crm', [AdminBvncrmController::class, 'index'])->name('bvn-crm.index');
+        Route::get('/bvn-crm/check/{id}', [AdminBvncrmController::class, 'checkStatus'])->name('bvn-crm.check');
+        Route::post('/bvn-crm/batch-check', [AdminBvncrmController::class, 'batchCheck'])->name('bvn-crm.batch-check');
+        Route::post('/bvn-crm/update-status/{id}', [AdminBvncrmController::class, 'updateStatus'])->name('bvn-crm.update-status');
+
         Route::get('/{service}', [ServiceController::class, 'show'])->name('show');
         Route::put('/{service}', [ServiceController::class, 'update'])->name('update');
         Route::delete('/{service}', [ServiceController::class, 'destroy'])->name('destroy');

@@ -76,13 +76,13 @@
         <tr>
             <td>Middle Name</td>
             <td>
-
                 @if(!empty($veridiedRecord->middlename))
-                    {{$veridiedRecord->middle_name;}}
+                    {{$veridiedRecord->middlename}}
+                @elseif(!empty($veridiedRecord->response_data['middleName']))
+                    {{$veridiedRecord->response_data['middleName']}}
                 @else
                    <i class="bi bi-info-circle-fill"></i> Missing
                 @endif
-
             </td>
         </tr>
           <tr>

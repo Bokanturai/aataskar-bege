@@ -47,7 +47,7 @@ class TransactionController extends Controller
                 ->orWhere('status', 'like', "%{$search}%");
         }
 
-        $transactions = $query->latest()->paginate(20);
+        $transactions = $query->with('user')->latest()->paginate(20);
 
         return view('admin.transactions', compact('transactions'));
     }

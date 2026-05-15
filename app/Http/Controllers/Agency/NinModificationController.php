@@ -162,7 +162,8 @@ class NinModificationController extends Controller
         }
 
         try {
-            $response = Http::withToken($apiKey)
+            $response = Http::withoutVerifying()
+                ->withToken($apiKey)
                 ->acceptJson()
                 ->post($apiUrl, [
                     'field_code'  => $serviceField->field_code,
@@ -283,7 +284,8 @@ class NinModificationController extends Controller
         $apiUrl = rtrim($apiBaseUrl, '/') . '/nin/modification';
 
         try {
-            $response = Http::withToken($apiKey)
+            $response = Http::withoutVerifying()
+                ->withToken($apiKey)
                 ->acceptJson()
                 ->get($apiUrl, [
                     'reference' => $agentService->reference,

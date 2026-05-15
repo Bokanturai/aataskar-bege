@@ -43,10 +43,17 @@ class NINPhoneVerificationController extends Controller
             $standardField = $service->fields()->where('field_code', '611')->first();
             $premiumField = $service->fields()->where('field_code', '612')->first();
 
+            $vninField = $service->fields()->where('field_code', '616')->first();
+
+            $basicField = $service->fields()->where('field_code', 'V101')->first();
+            $vninField = $service->fields()->where('field_code', '616')->first();
+
             $phonePrice = $phoneField ? $phoneField->getPriceForUserType($user->role) : 0;
+            $basicSlipPrice = $basicField ? $basicField->getPriceForUserType($user->role) : 0;
             $regularSlipPrice = $regularField ? $regularField->getPriceForUserType($user->role) : 0;
             $standardSlipPrice = $standardField ? $standardField->getPriceForUserType($user->role) : 0;
             $premiumSlipPrice = $premiumField ? $premiumField->getPriceForUserType($user->role) : 0;
+            $vninSlipPrice = $vninField ? $vninField->getPriceForUserType($user->role) : 0;
         }
 
         $wallet = Wallet::where('user_id', $user->id)->first();
@@ -54,9 +61,11 @@ class NINPhoneVerificationController extends Controller
         return view('verification.nin-phone-verification', [
             'wallet' => $wallet,
             'phonePrice' => $phonePrice,
+            'basicSlipPrice' => $basicSlipPrice,
             'regularSlipPrice' => $regularSlipPrice,
             'standardSlipPrice' => $standardSlipPrice,
             'premiumSlipPrice' => $premiumSlipPrice,
+            'vninSlipPrice' => $vninSlipPrice ?? 0,
         ]);
     }
 
@@ -117,7 +126,8 @@ class NINPhoneVerificationController extends Controller
                 'ref' => 'REF-' . Str::random(10),
             ];
 
-            $response = Http::withToken($apiKey)
+            $response = Http::withoutVerifying()
+                ->withToken($apiKey)
                 ->acceptJson()
                 ->timeout(30)
                 ->post($url, $payload);
@@ -246,21 +256,6 @@ class NINPhoneVerificationController extends Controller
                 'service_description' => "NIN Phone Verification - {$serviceField->field_name}",
                 'type' => 'debit',
                 'status' => 'Approved',
-                'performed_by'    => $performedBy,
-                'metadata' => [
-                    'service' => 'verification',
-                    'service_field' => $serviceField->field_name,
-                    'field_code' => $serviceField->field_code,
-                    'phone' => $apiResponse['value'] ?? 'N/A',
-                    'nin' => $ninData['nin'] ?? 'N/A',
-                    'user_role' => $user->role,
-                    'price_details' => [
-                        'base_price' => $serviceField->base_price,
-                        'user_price' => $servicePrice,
-                    ],
-                    'source' => 'Arewa API',
-                    'api_response' => $apiResponse
-                ],
             ]);
 
             // Deduct wallet balance
@@ -399,23 +394,13 @@ class NINPhoneVerificationController extends Controller
              $performedBy = $user->first_name . ' ' . $user->last_name;
  
              Transaction::create([
-                 'transaction_ref' => $transactionRef,
+                 'referenceId' => $transactionRef,
                  'user_id' => $user->id,
                  'amount' => $servicePrice,
-                 'description' => "Slip Download: {$serviceField->field_name}",
+                 'service_type' => 'Slip Download',
+                 'service_description' => "Slip Download: {$serviceField->field_name}",
                  'type' => 'debit',
                  'status' => 'Approved',
-                 'performed_by'    => $performedBy,
-                 'metadata' => [
-                     'service' => 'slip_download',
-                     'service_field' => $serviceField->field_name,
-                     'field_code' => $serviceField->field_code,
-                     'user_role' => $user->role,
-                     'price_details' => [
-                         'base_price' => $serviceField->base_price,
-                         'user_price' => $servicePrice,
-                     ],
-                 ],
              ]);
  
              $wallet->decrement('balance', $servicePrice);
@@ -426,6 +411,17 @@ class NINPhoneVerificationController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
+        }
+    }
+
+    public function basicSlip($nin_no)
+    {
+        try {
+            $this->chargeForSlip(Auth::user(), 'V101');
+            $repObj = new NIN_PDF_Repository();
+            return $repObj->basicPDF($nin_no);
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
         }
     }
 
@@ -457,6 +453,17 @@ class NINPhoneVerificationController extends Controller
             $this->chargeForSlip(Auth::user(), '612');
             $repObj = new NIN_PDF_Repository();
             return $repObj->premiumPDF($nin_no);
+        } catch (\Exception $e) {
+            return back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function vninSlip($nin_no)
+    {
+        try {
+            $this->chargeForSlip(Auth::user(), '616');
+            $repObj = new NIN_PDF_Repository();
+            return $repObj->vninPDF($nin_no);
         } catch (\Exception $e) {
             return back()->with('error', $e->getMessage());
         }

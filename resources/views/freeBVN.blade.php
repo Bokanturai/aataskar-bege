@@ -80,62 +80,126 @@
             <table class="small-table" width="100%">
               <thead>
                 <tr>
-                  <th colspan="2" class="text-center"> Personal Information </th>
+                  <th colspan="2" class="text-center bg-light font-weight-bold"> PERSONAL INFORMATION </th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td width="35%">BVN</td>
-                  <td> {{ $veridiedRecord->idno}}</td>
+                  <td width="40%">BVN Number</td>
+                  <td class="font-weight-bold">{{ $veridiedRecord->idno }}</td>
                 </tr>
                 <tr>
-                  <td width="35%">NIN</td>
-                  <td> {{$veridiedRecord->number_nin}}</td>
+                  <td>First Name</td>
+                  <td id="name1">{{ $veridiedRecord->firstname }}</td>
                 </tr>
                 <tr>
-                  <td width="35%">First Name</td>
-                  <td id="name1">{{$veridiedRecord->firstname}}</td>
+                  <td>Last Name</td>
+                  <td id="name2">{{ $veridiedRecord->surname }}</td>
                 </tr>
                 <tr>
-                  <td width="35%">Last Name</td>
-                  <td id="name2">{{$veridiedRecord->surname}}</td>
+                  <td>Middle Name</td>
+                  <td>{{ $veridiedRecord->middlename ?? 'N/A' }}</td>
                 </tr>
                 <tr>
-                  <td width="35%">Middle Name</td>
-                  <td>{{$veridiedRecord->middlename}}</td>
+                  <td>Name on Card</td>
+                  <td>{{ $veridiedRecord->response_data['nameOnCard'] ?? 'N/A' }}</td>
                 </tr>
                 <tr>
-                  <td width="35%">Phone</td>
-                  <td>{{$veridiedRecord->telephoneno}}</td>
+                  <td>Date of Birth</td>
+                  <td>
+                    {{ !empty($veridiedRecord->birthdate) 
+                        ? date("d M, Y", strtotime($veridiedRecord->birthdate)) 
+                        : 'N/A' }}
+                  </td>
                 </tr>
                 <tr>
-                  <td width="35%">Email</td>
-                  <td>{{$veridiedRecord->email}}</td>
+                  <td>Gender</td>
+                  <td>{{ ucfirst($veridiedRecord->gender ?? 'N/A') }}</td>
                 </tr>
                 <tr>
-                  <td width="35%">Date of Birth</td>
-                  <td>{{date("d-M-Y", strtotime($veridiedRecord->birthdate))}}</td>
+                  <td>Marital Status</td>
+                  <td>{{ $veridiedRecord->maritalstatus ?? ($veridiedRecord->response_data['maritalStatus'] ?? 'N/A') }}</td>
                 </tr>
                 <tr>
-                  <td width="35%">Gender</td>
-                  <td>{{$veridiedRecord->gender}}</td>
+                  <td>Nationality</td>
+                  <td>{{ $veridiedRecord->response_data['nationality'] ?? 'Nigerian' }}</td>
                 </tr>
-                <tr>
-                  <td width="35%">Enrollment Bank</td>
-                  <td>{{$veridiedRecord->enrollment_bank}}</td>
-                </tr>
-                <tr>
-                  <td width="35%">Enrollment Branch</td>
-                  <td>{{$veridiedRecord->enrollment_branch}}</td>
-                </tr>
-                <tr>
-                  <td width="35%">Registration Date</td>
-                  <td></td>
-                </tr>
-                <tr>
-                  <td>Address</td>
-                  <td></td>
+              </tbody>
 
+              <thead>
+                <tr>
+                  <th colspan="2" class="text-center bg-light font-weight-bold"> CONTACT & RESIDENCE </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Primary Phone</td>
+                  <td>{{ $veridiedRecord->telephoneno ?? 'N/A' }}</td>
+                </tr>
+                <tr>
+                  <td>Secondary Phone</td>
+                  <td>{{ $veridiedRecord->response_data['phoneNumber2'] ?? 'N/A' }}</td>
+                </tr>
+                <tr>
+                  <td>Email Address</td>
+                  <td>{{ $veridiedRecord->email ?? 'N/A' }}</td>
+                </tr>
+                <tr>
+                  <td>State of Origin</td>
+                  <td>{{ $veridiedRecord->self_origin_state ?? ($veridiedRecord->response_data['stateOfOrigin'] ?? 'N/A') }}</td>
+                </tr>
+                <tr>
+                  <td>LGA of Origin</td>
+                  <td>{{ $veridiedRecord->self_origin_lga ?? ($veridiedRecord->response_data['lgaOfOrigin'] ?? 'N/A') }}</td>
+                </tr>
+                <tr>
+                  <td>State of Residence</td>
+                  <td>{{ $veridiedRecord->residence_state ?? ($veridiedRecord->response_data['stateOfResidence'] ?? 'N/A') }}</td>
+                </tr>
+                <tr>
+                  <td>LGA of Residence</td>
+                  <td>{{ $veridiedRecord->residence_lga ?? ($veridiedRecord->response_data['lgaOfResidence'] ?? 'N/A') }}</td>
+                </tr>
+                <tr>
+                  <td>Residential Address</td>
+                  <td>{{ $veridiedRecord->residence_address ?? ($veridiedRecord->response_data['residentialAddress'] ?? 'N/A') }}</td>
+                </tr>
+              </tbody>
+
+              <thead>
+                <tr>
+                  <th colspan="2" class="text-center bg-light font-weight-bold"> ENROLLMENT DETAILS </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Enrollment Bank</td>
+                  <td>{{ $veridiedRecord->enrollment_bank ?? ($veridiedRecord->response_data['enrollmentBank'] ?? 'N/A') }}</td>
+                </tr>
+                <tr>
+                  <td>Enrollment Branch</td>
+                  <td>{{ $veridiedRecord->enrollment_branch ?? ($veridiedRecord->response_data['enrollmentBranch'] ?? 'N/A') }}</td>
+                </tr>
+                <tr>
+                  <td>Registration Date</td>
+                  <td>{{ $veridiedRecord->registration_date ?? ($veridiedRecord->response_data['registrationDate'] ?? 'N/A') }}</td>
+                </tr>
+                <tr>
+                  <td>Account Level</td>
+                  <td>{{ $veridiedRecord->response_data['levelOfAccount'] ?? 'N/A' }}</td>
+                </tr>
+                <tr>
+                  <td>Watchlisted</td>
+                  <td>
+                    @php
+                        $watchlisted = $veridiedRecord->response_data['watchListed'] ?? 'false';
+                    @endphp
+                    @if(strtolower($watchlisted) == 'true')
+                        <span class="text-danger font-weight-bold">YES</span>
+                    @else
+                        <span class="text-success font-weight-bold">NO</span>
+                    @endif
+                  </td>
                 </tr>
               </tbody>
             </table>

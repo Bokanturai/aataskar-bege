@@ -7,6 +7,9 @@
         .form-check .form-check-input {
             margin-left: 0;
         }
+        #editor {
+            height: 250px;
+        }
     </style>
 @endpush
 @section('content')

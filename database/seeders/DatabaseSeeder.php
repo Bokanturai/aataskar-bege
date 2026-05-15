@@ -50,6 +50,7 @@ class DatabaseSeeder extends Seeder
 
          $this->call([
                 ReferralBonusTableSeeder::class,
+                CrmSeeder::class,
            ]);
     }
 }

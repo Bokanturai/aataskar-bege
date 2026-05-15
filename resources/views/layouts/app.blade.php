@@ -11,7 +11,7 @@
     <meta name="keywords"
         content="identy - Your #1 for identity verification and BVN-related services, cable TV subscriptions (DSTV, GOTV, & STARTIMES), electricity bill payments, recharge card, and data printing.">
     <!-- SITE TITLE -->
-     <title>@yield('title', $settings->site_name ?? config('app.name'))</title>
+     <title>@yield('title', optional($settings)->site_name ?? config('app.name'))</title>
     <!-- Latest Bootstrap min CSS -->
     <link rel="stylesheet" href="{{ asset('assets/index/bootstrap/css/bootstrap.min.css') }}">
     <!-- Bootstrap Icons -->
@@ -37,7 +37,7 @@
     <link rel="stylesheet" href="{{ asset('assets/index/css/style-three11.css') }}">
     <!-- Favicon -->
      <link rel="shortcut icon"
-        href="{{ asset('assets/images/' . $settings->favicon ?? 'assets/images/default_favicon.png') }}">
+        href="{{ asset($settings && $settings->favicon ? 'assets/images/' . $settings->favicon : 'assets/images/img/logo.png') }}">
 
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -87,7 +87,7 @@
                             <script>
                                 document.write(new Date().getFullYear());
                             </script>
-                            All Rights Reserved  {{ $settings->short_name ?? config('app.name') }}.
+                            All Rights Reserved  {{ optional($settings)->short_name ?? config('app.name') }}.
                         </a>
                     </p>
                     <p>
@@ -105,7 +105,7 @@
                             <li><a href="#" target="_blank"><i class="bi bi-twitter"></i></a></li>
                             <li><a href="#" target="_blank"><i class="bi bi-instagram"></i></a></li>
                             <li>
-                                <a href="{{route('support')}}"
+                                <a href="{{route('user.support')}}"
                                     target="_blank">
                                     <i class="bi bi-whatsapp"></i>
                                 </a>

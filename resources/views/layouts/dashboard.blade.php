@@ -5,17 +5,18 @@
     <!-- Required meta tags -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>@yield('title', $settings->site_name ?? config('app.name'))</title>
+    <title>@yield('title', optional($settings)->site_name ?? config('app.name'))</title>
     <!-- plugins:css -->
     <link rel="stylesheet" href="{{ asset('assets/css/materialdesignicons.min.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/vendor.bundle.base.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <!-- endinject -->
 
     <!-- Plugin css for this page -->
     <link rel="stylesheet" href="{{ asset('assets/css/bootstrap-datepicker.min.css') }}">
     <!-- End plugin css for this page -->
     <link rel="shortcut icon"
-        href="{{ asset('assets/images/' . $settings->favicon ?? 'assets/images/default_favicon.png') }}">
+        href="{{ asset($settings && $settings->favicon ? 'assets/images/' . $settings->favicon : 'assets/images/img/logo.png') }}">
     <!-- inject:css -->
     <link rel="stylesheet" href="{{ asset('assets/css/style.css') }}">
     <!-- endinject -->
@@ -145,7 +146,7 @@
 
 
             <h6 class="loader-text">
-                {{ $settings->short_name ?? config('app.name') }}
+                {{ optional($settings)->short_name ?? config('app.name') }}
             </h6>
 
         </div>

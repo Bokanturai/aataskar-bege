@@ -112,7 +112,8 @@ class BvnverificationController extends Controller
             $apiBaseUrl = env('AREWA_BASE_URL');
             $apiUrl = rtrim($apiBaseUrl, '/') . '/bvn/verify';
 
-            $response = Http::withToken($apiKey)
+            $response = Http::withoutVerifying()
+                ->withToken($apiKey)
                 ->acceptJson()
                 ->post($apiUrl, [
                     'bvn' => $request->bvn,
@@ -214,10 +215,21 @@ class BvnverificationController extends Controller
                 'firstname' => $apiData['firstName'] ?? ($apiData['first_name'] ?? ''),
                 'middlename' => $apiData['middleName'] ?? ($apiData['middle_name'] ?? ''),
                 'surname' => $apiData['lastName'] ?? ($apiData['last_name'] ?? ''),
-                'birthdate' =>  $apiData['dob'] ?? ($apiData['birthday'] ?? ''),
+                'birthdate' =>  $apiData['birthday'] ?? ($apiData['dob'] ?? ''),
                 'gender' => $apiData['gender'] ?? '',
+                'maritalstatus' => $apiData['maritalStatus'] ?? '',
+                'email' => $apiData['email'] ?? '',
                 'telephoneno' => $apiData['phoneNumber'] ?? ($apiData['phone'] ?? ''),
                 'photo_path' => $apiData['photo'] ?? '',
+                'enrollment_bank' => $apiData['enrollmentBank'] ?? '',
+                'enrollment_branch' => $apiData['enrollmentBranch'] ?? '',
+                'registration_date' => $apiData['registrationDate'] ?? '',
+                'self_origin_state' => $apiData['stateOfOrigin'] ?? '',
+                'self_origin_lga' => $apiData['lgaOfOrigin'] ?? '',
+                'residence_state' => $apiData['stateOfResidence'] ?? '',
+                'residence_lga' => $apiData['lgaOfResidence'] ?? '',
+                'residence_address' => $apiData['residentialAddress'] ?? '',
+                'response_data' => $apiData,
                 'performed_by'    => $performedBy,
                 'submission_date' => Carbon::now()
             ]);
@@ -281,23 +293,13 @@ class BvnverificationController extends Controller
              $performedBy = $user->first_name . ' ' . $user->last_name;
  
              Transaction::create([
-                 'transaction_ref' => $transactionRef,
+                 'referenceId' => $transactionRef,
                  'user_id' => $user->id,
                  'amount' => $servicePrice,
-                 'description' => "Slip Download: {$serviceField->field_name}",
+                 'service_type' => 'Slip Download',
+                 'service_description' => "Slip Download: {$serviceField->field_name}",
                  'type' => 'debit',
                  'status' => 'Approved',
-                 'performed_by'    => $performedBy,
-                 'metadata' => [
-                     'service' => 'slip_download',
-                     'service_field' => $serviceField->field_name,
-                     'field_code' => $serviceField->field_code,
-                     'user_role' => $user->role,
-                     'price_details' => [
-                         'base_price' => $serviceField->base_price,
-                         'user_price' => $servicePrice,
-                     ],
-                 ],
              ]);
  
              // Deduct wallet balance
@@ -318,6 +320,7 @@ class BvnverificationController extends Controller
      */
     public function standardBVN($bvn_no)
     {
+        DB::beginTransaction();
         try {
             $this->chargeForSlip(Auth::user(), '601'); // Charge for Standard Slip
             
@@ -328,14 +331,17 @@ class BvnverificationController extends Controller
 
                 // Using user's requested view name: freeBVN
                 $view = view('freeBVN', compact('veridiedRecord'))->render();
+                DB::commit();
                 return response()->json(['view' => $view]);
             } else {
+                DB::rollBack();
                 return response()->json([
                     "message" => "Error",
                     "errors" => array("Not Found" => "Verification record not found !")
                 ], 422);
             }
         } catch (\Exception $e) {
+             DB::rollBack();
              return response()->json([
                 "message" => "Error",
                 "errors" => array("Charge Failed" => $e->getMessage())
@@ -345,6 +351,7 @@ class BvnverificationController extends Controller
 
     public function premiumBVN($bvn_no)
     {
+        DB::beginTransaction();
         try {
             $this->chargeForSlip(Auth::user(), '602'); // Charge for Premium Slip
 
@@ -355,14 +362,17 @@ class BvnverificationController extends Controller
 
                 // Using user's requested view name: PremiumBVN
                 $view = view('PremiumBVN', compact('veridiedRecord'))->render();
+                DB::commit();
                 return response()->json(['view' => $view]);
             } else {
+                DB::rollBack();
                 return response()->json([
                     "message" => "Error",
                     "errors" => array("Not Found" => "Verification record not found !")
                 ], 422);
             }
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                "message" => "Error",
                "errors" => array("Charge Failed" => $e->getMessage())
@@ -372,12 +382,16 @@ class BvnverificationController extends Controller
 
     public function plasticBVN($bvn_no)
     {
+         DB::beginTransaction();
          try {
             $this->chargeForSlip(Auth::user(), '603'); // Charge for Plastic Slip
             
             $repObj = new BVN_PDF_Repository();
-            return $repObj->plasticPDF($bvn_no);
+            $pdf = $repObj->plasticPDF($bvn_no);
+            DB::commit();
+            return $pdf;
          } catch (\Exception $e) {
+             DB::rollBack();
              // For plastic PDF, we might need to return a view or redirect with error since it's a direct link
              return back()->with('error', $e->getMessage());
         }

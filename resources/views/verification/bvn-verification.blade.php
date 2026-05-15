@@ -111,6 +111,9 @@
                                 <div class="table-responsive">
                                     <table class="table table-bordered table-striped align-middle">
                                         <tbody>
+                                            <tr class="table-light">
+                                                <th colspan="2" class="text-center fw-bold">Personal Details</th>
+                                            </tr>
                                             <tr>
                                                 <th class="w-40 bg-light">BVN Number</th>
                                                 <td class="fw-bold text-primary">{{ session('verification')['data']['bvn'] }}</td>
@@ -140,8 +143,79 @@
                                                 <td>{{ ucfirst(session('verification')['data']['gender'] ?? 'N/A') }}</td>
                                             </tr>
                                             <tr>
-                                                <th class="bg-light">Phone</th>
+                                                <th class="bg-light">Marital Status</th>
+                                                <td>{{ session('verification')['data']['maritalStatus'] ?? 'N/A' }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th class="bg-light">Nationality</th>
+                                                <td>{{ session('verification')['data']['nationality'] ?? 'Nigerian' }}</td>
+                                            </tr>
+
+                                            <tr class="table-light">
+                                                <th colspan="2" class="text-center fw-bold">Contact & Residence</th>
+                                            </tr>
+                                            <tr>
+                                                <th class="bg-light">Primary Phone</th>
                                                 <td>{{ session('verification')['data']['phoneNumber'] ?? 'N/A' }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th class="bg-light">Secondary Phone</th>
+                                                <td>{{ session('verification')['data']['phoneNumber2'] ?? 'N/A' }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th class="bg-light">Email Address</th>
+                                                <td>{{ session('verification')['data']['email'] ?? 'N/A' }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th class="bg-light">Origin</th>
+                                                <td>
+                                                    {{ session('verification')['data']['lgaOfOrigin'] ?? 'N/A' }}, 
+                                                    {{ session('verification')['data']['stateOfOrigin'] ?? 'N/A' }} State
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th class="bg-light">Residence</th>
+                                                <td>
+                                                    {{ session('verification')['data']['lgaOfResidence'] ?? 'N/A' }}, 
+                                                    {{ session('verification')['data']['stateOfResidence'] ?? 'N/A' }} State
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th class="bg-light">Residential Address</th>
+                                                <td>{{ session('verification')['data']['residentialAddress'] ?? 'N/A' }}</td>
+                                            </tr>
+
+                                            <tr class="table-light">
+                                                <th colspan="2" class="text-center fw-bold">Enrollment Information</th>
+                                            </tr>
+                                            <tr>
+                                                <th class="bg-light">Enrollment Bank</th>
+                                                <td>{{ session('verification')['data']['enrollmentBank'] ?? 'N/A' }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th class="bg-light">Enrollment Branch</th>
+                                                <td>{{ session('verification')['data']['enrollmentBranch'] ?? 'N/A' }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th class="bg-light">Registration Date</th>
+                                                <td>{{ session('verification')['data']['registrationDate'] ?? 'N/A' }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th class="bg-light">Level of Account</th>
+                                                <td>{{ session('verification')['data']['levelOfAccount'] ?? 'N/A' }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th class="bg-light">Watchlisted</th>
+                                                <td>
+                                                    @php
+                                                        $watchlisted = session('verification')['data']['watchListed'] ?? 'false';
+                                                    @endphp
+                                                    @if(strtolower($watchlisted) == 'true')
+                                                        <span class="badge bg-danger">YES</span>
+                                                    @else
+                                                        <span class="badge bg-success">NO</span>
+                                                    @endif
+                                                </td>
                                             </tr>
                                         </tbody>
                                     </table>

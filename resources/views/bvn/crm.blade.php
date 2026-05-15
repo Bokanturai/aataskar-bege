@@ -1,5 +1,5 @@
 <x-app-layout>
-    <title>Hanan Verify - {{ $title ?? 'CRM Request Form' }}</title>
+    <title>Baya Jidda - {{ $title ?? 'CRM Request Form' }}</title>
     <div class="page-body">
         <div class="container-fluid">
             <div class="page-title mb-3">
@@ -59,9 +59,7 @@
                                         <option value="">-- Select CRM Category --</option>
                                         @foreach ($fieldname as $field)
                                             @php
-                                                $price = $field->prices
-                                                    ->where('user_type', auth()->user()->role)
-                                                    ->first()?->price ?? $field->base_price;
+                                                $price = $field->getPriceForUserType(auth()->user()->role);
                                             @endphp
                                             <option value="{{ $field->id }}"
                                                     data-price="{{ $price }}"
@@ -117,15 +115,7 @@
                                     </div>
                                 </div>
 
-                                <!-- Terms -->
-                                <div class="col-12 mt-2">
-                                    <div class="form-check custom-checkbox">
-                                        <input class="form-check-input" id="termsCheckbox" type="checkbox" required>
-                                        <label class="form-check-label small" for="termsCheckbox">
-                                            By submitting, I certify that the IDs provided are from a failed enrollment and belong to the correct individual.
-                                        </label>
-                                    </div>
-                                </div>
+
 
                                 <!-- Submit -->
                                 <div class="col-12 d-grid">
@@ -141,10 +131,11 @@
                 <!-- Submission History -->
                 <div class="col-xl-6">
                     <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
-                        <div class="card-header bg-white border-bottom py-3">
-                            <h5 class="fw-bold mb-0 text-dark">
-                                <i class="bi bi-clock-history me-2 text-primary"></i> CRM Submission History
+                        <div class="card-header bg-primary text-white py-3 d-flex align-items-center justify-content-between">
+                            <h5 class="fw-bold mb-0 text-white">
+                                <i class="bi bi-clock-history me-2"></i> CRM Submission History
                             </h5>
+
                         </div>
 
                         <div class="card-body p-4">
@@ -197,6 +188,7 @@
                                                         'resolved', 'successful' => 'success',
                                                         'processing'             => 'primary',
                                                         'rejected'               => 'danger',
+                                                        'failed'                 => 'danger',
                                                         'query'                  => 'info',
                                                         'remark'                 => 'secondary',
                                                         default                  => 'warning'
@@ -314,32 +306,33 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
-            const crmSelect = document.getElementById('crm_service_field');
+            const fieldSelect = document.getElementById('crm_service_field');
             const priceDisplay = document.getElementById('crm-field-price');
-            const descDisplay = document.getElementById('crm-field-description');
+            const descArea = document.getElementById('crm-field-description');
 
-            if (crmSelect) {
-                crmSelect.addEventListener('change', function() {
-                    if (this.value) {
-                        const selectedOption = this.options[this.selectedIndex];
-                        const price = parseFloat(selectedOption.dataset.price || 0);
-                        const description = selectedOption.dataset.description || '';
+            if (fieldSelect) {
+                const updatePrice = () => {
+                    let selectedOption = fieldSelect.options[fieldSelect.selectedIndex];
+                    let price = selectedOption.getAttribute('data-price');
+                    let description = selectedOption.getAttribute('data-description');
 
-                        priceDisplay.textContent = '₦' + price.toLocaleString('en-NG', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
-                        });
-                        descDisplay.textContent = description;
+                    if (price && price !== "") {
+                        priceDisplay.textContent = '₦' + parseFloat(price).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
                     } else {
                         priceDisplay.textContent = '₦0.00';
-                        descDisplay.textContent = '';
                     }
-                });
 
-                // Trigger change event to set initial value (e.g., if there's an old value selected)
-                if (crmSelect.value) {
-                    crmSelect.dispatchEvent(new Event('change'));
-                }
+                    if (description) {
+                        descArea.textContent = description;
+                    } else {
+                        descArea.textContent = '';
+                    }
+                };
+
+                fieldSelect.addEventListener('change', updatePrice);
+                
+                // Trigger initial update
+                updatePrice();
             }
 
             @if (session('status') && session('message'))
@@ -369,5 +362,7 @@
                 });
             @endif
         });
+
+
     </script>
 </x-app-layout>

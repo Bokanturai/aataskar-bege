@@ -150,10 +150,14 @@
                                                             <tr>
                                                                 <td>{{ $loop->iteration }}</td>
                                                                 <td>
+                                                                    @if($data->referenceId)
                                                                     <a target="_blank"
                                                                         href="{{ route('admin.reciept', $data->referenceId) }}">
                                                                         {{ strtoupper($data->referenceId) }}
                                                                     </a>
+                                                                    @else
+                                                                    <span class="text-muted">N/A</span>
+                                                                    @endif
                                                                 </td>
                                                                 <td>{{ $data->service_type }}</td>
                                                                 <td>{{ $data->service_description }}</td>
@@ -167,11 +171,17 @@
                                                                 </td>
 
                                                                 <td class="text-center">
+                                                                    @if($data->referenceId)
                                                                     <a target="_blank"
                                                                         href="{{ route('admin.reciept', $data->referenceId) }}"
                                                                         class="btn btn-primary btn-sm">
                                                                         <i class="bi bi-download"></i> Download
                                                                     </a>
+                                                                    @else
+                                                                    <button disabled class="btn btn-outline-secondary btn-sm">
+                                                                        <i class="bi bi-slash-circle"></i> No Receipt
+                                                                    </button>
+                                                                    @endif
                                                                 </td>
                                                             </tr>
                                                         @endforeach

@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>@yield('title', $settings->site_name ?? config('app.name'))</title>
+    <title>@yield('title', optional($settings)->site_name ?? config('app.name'))</title>
 
     <!-- Plugins: CSS -->
     <link rel="stylesheet" href="{{ asset('assets/css/materialdesignicons.min.css') }}">
@@ -13,8 +13,8 @@
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ asset('assets/css/style.css') }}">
     <link rel="stylesheet" href="{{ asset('assets/css/custom.css') }}">
-    <link rel="shortcut icon"
-   
+    <link rel="shortcut icon" href="{{ asset($settings && $settings->favicon ? 'assets/images/' . $settings->favicon : 'assets/images/img/logo.png') }}">
+
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
@@ -30,7 +30,7 @@
                       </div>
 
             <h6 class="loader-text">
-                {{ $settings->short_name ?? config('app.name') }}
+                {{ optional($settings)->short_name ?? config('app.name') }}
             </h6>
 
         </div>

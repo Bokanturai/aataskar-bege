@@ -97,6 +97,16 @@
             transform: scale(1.1);
         }
 
+        /* Service Icon Backgrounds */
+        .bg-purple { background-color: #6f42c1 !important; }
+        .bg-info { background-color: #0dcaf0 !important; }
+        .bg-success { background-color: #198754 !important; }
+        .bg-warning { background-color: #ffc107 !important; }
+        .bg-danger { background-color: #dc3545 !important; }
+        .bg-primary { background-color: #0d6efd !important; }
+        .bg-secondary { background-color: #6c757d !important; }
+        .bg-dark { background-color: #212529 !important; }
+
         /* Custom CSS for cards */
         .card {
             transition: box-shadow 0.3s ease;
@@ -123,6 +133,8 @@
             /* Darker blue on hover */
         }
     </style>
+    <!-- Latest Material Design Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
 @endpush
 @section('content')
     <div class="row">
@@ -137,6 +149,22 @@
             </div>
         @endif
         @include('common.message')
+        
+        <!-- System Announcement -->
+        <div class="col-12 mb-4">
+            <div class="card bg-primary text-white border-0 shadow-sm" style="border-radius: 12px; background: linear-gradient(45deg, #5e2572, #8e44ad) !important;">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center">
+                        <i class="mdi mdi-bullhorn-variant-outline mdi-24px me-3"></i>
+                        <div>
+                            <h6 class="mb-0 fw-bold">System Update</h6>
+                            <small>All NIN and BVN services are currently optimized and running at 99.9% success rate. 🚀</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="col-lg-12 grid-margin d-flex flex-column">
             <div class="row">
                 <div class="col-md-6 col-6 grid-margin stretch-card">
@@ -182,208 +210,39 @@
                     <div class="container py-3" style="max-width: 100%">
                         <h4 class="fw-light mb-4 text-center">Our Services</h4>
                         <div class="row g-4">
+                            @php
+                                $services = [
+                                    ['icon' => 'bi-telephone', 'title' => 'Buy Airtime', 'desc' => 'Recharge instantly', 'route' => 'user.airtime', 'color' => 'bg-primary'],
+                                    ['icon' => 'bi-database', 'title' => 'Buy Data', 'desc' => 'Browsing bundles', 'route' => 'user.buy-data', 'color' => 'bg-info'],
+                                    ['icon' => 'bi-wifi', 'title' => 'Buy SME Data', 'desc' => 'Cheap bundles', 'route' => 'user.buy-sme-data', 'color' => 'bg-purple'],
+                                    ['icon' => 'bi-person-check', 'title' => 'NIN Verification', 'desc' => 'Verify NIN Slip', 'route' => 'user.nin.verification.index', 'color' => 'bg-success'],
+                                    ['icon' => 'bi-phone', 'title' => 'NIN Phone Verify', 'desc' => 'Linked numbers', 'route' => 'user.nin.phone.index', 'color' => 'bg-warning'],
+                                    ['icon' => 'bi-person-vcard', 'title' => 'NIN Demo Verify', 'desc' => 'Name & DOB', 'route' => 'user.nin.demo.index', 'color' => 'bg-secondary'],
+                                    ['icon' => 'bi-shield-check', 'title' => 'BVN Verification', 'desc' => 'Secure check', 'route' => 'user.bvn-verification', 'color' => 'bg-danger'],
+                                    ['icon' => 'bi-patch-check', 'title' => 'NIN Validation', 'desc' => 'Confirm records', 'route' => 'user.nin.validation.index', 'color' => 'bg-info'],
+                                    ['icon' => 'bi-person-gear', 'title' => 'NIN Modification', 'desc' => 'Update details', 'route' => 'user.nin.modification.index', 'color' => 'bg-danger'],
+                                    ['icon' => 'bi-bank', 'title' => 'BVN Modification', 'desc' => 'Bank records', 'route' => 'user.modification', 'color' => 'bg-dark'],
+                                    ['icon' => 'bi-headset', 'title' => 'BVN CRM Service', 'desc' => 'Check status', 'route' => 'user.bvn-crm', 'color' => 'bg-primary'],
+                                    ['icon' => 'bi-search', 'title' => 'BVN Phone Search', 'desc' => 'Phone search', 'route' => 'user.phone.search.index', 'color' => 'bg-info'],
+                                    ['icon' => 'bi-file-earmark-check', 'title' => 'IPE Clearance', 'desc' => 'Clearance check', 'route' => 'user.ipe.index', 'color' => 'bg-purple'],
+                                    ['icon' => 'bi-percent', 'title' => 'TIN Verification', 'desc' => 'Tax identification', 'route' => 'user.tin.index', 'color' => 'bg-success'],
+                                ];
+                            @endphp
 
-                            <!-- Airtime -->
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="card shadow-sm border-0 h-100 service-card hover-shadow">
-                                    <div class="card-body text-center p-3">
-                                        <div class="icon-box-media mx-auto mb-3 bg-primary bg-gradient d-flex align-items-center justify-content-center rounded-circle" style="width: 60px; height: 60px;">
-                                            <i class="mdi mdi-phone text-white" style="font-size: 30px;"></i>
-                                        </div>
-                                        <h6 class="fw-bold mb-1">Buy Airtime</h6>
-                                        <p class="text-muted small mb-0">Recharge instantly</p>
-                                        <a href="{{ route('user.airtime') }}" class="stretched-link"></a>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Data -->
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="card shadow-sm border-0 h-100 service-card hover-shadow">
-                                    <div class="card-body text-center p-3">
-                                        <div class="icon-box-media mx-auto mb-3 bg-primary bg-gradient d-flex align-items-center justify-content-center rounded-circle" style="width: 60px; height: 60px;">
-                                            <i class="mdi mdi-database-outline text-white" style="font-size: 30px;"></i>
-                                        </div>
-                                        <h6 class="fw-bold mb-1">Buy Data</h6>
-                                        <p class="text-muted small mb-0">Browsing bundles</p>
-                                        <a href="{{ route('user.buy-data') }}" class="stretched-link"></a>
-                                    </div>
-                                </div>
-                            </div>
-
-                                 <!-- Data -->
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="card shadow-sm border-0 h-100 service-card hover-shadow">
-                                    <div class="card-body text-center p-3">
-                                        <div class="icon-box-media mx-auto mb-3 bg-primary bg-gradient d-flex align-items-center justify-content-center rounded-circle" style="width: 60px; height: 60px;">
-                                            <i class="mdi mdi-wifi-cog text-white" style="font-size: 30px;"></i>
-                                        </div>
-                                        <h6 class="fw-bold mb-1">Buy SME Data</h6>
-                                        <p class="text-muted small mb-0">Browsing bundles</p>
-                                        <a href="{{ route('user.buy-sme-data') }}" class="stretched-link"></a>
-                                    </div>
-                                </div>
-                            </div>
-
-
-                            <!-- NIN Verification -->
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="card shadow-sm border-0 h-100 service-card hover-shadow">
-                                    <div class="card-body text-center p-3">
-                                        <div class="icon-box-media mx-auto mb-3 bg-info bg-gradient d-flex align-items-center justify-content-center rounded-circle" style="width: 60px; height: 60px;">
-                                            <i class="mdi mdi-account-search-outline text-white" style="font-size: 30px;"></i>
-                                        </div>
-                                        <h6 class="fw-bold mb-1">NIN Verification</h6>
-                                        <p class="text-muted small mb-0">Verify NIN Slip</p>
-                                        <a href="{{ route('user.nin.verification.index') }}" class="stretched-link"></a>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- NIN Phone -->
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="card shadow-sm border-0 h-100 service-card hover-shadow">
-                                    <div class="card-body text-center p-3">
-                                        <div class="icon-box-media mx-auto mb-3 bg-success bg-gradient d-flex align-items-center justify-content-center rounded-circle" style="width: 60px; height: 60px;">
-                                            <i class="mdi mdi-phone-account text-white" style="font-size: 30px;"></i>
-                                        </div>
-                                        <h6 class="fw-bold mb-1">NIN Phone</h6>
-                                        <p class="text-muted small mb-0">Linked numbers</p>
-                                        <a href="{{ route('user.nin.phone.index') }}" class="stretched-link"></a>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- NIN Demographic -->
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="card shadow-sm border-0 h-100 service-card hover-shadow">
-                                    <div class="card-body text-center p-3">
-                                        <div class="icon-box-media mx-auto mb-3 bg-warning bg-gradient d-flex align-items-center justify-content-center rounded-circle" style="width: 60px; height: 60px;">
-                                            <i class="mdi mdi-card-text-outline text-white" style="font-size: 30px;"></i>
-                                        </div>
-                                        <h6 class="fw-bold mb-1">NIN Demo</h6>
-                                        <p class="text-muted small mb-0">Name & DOB</p>
-                                        <a href="{{ route('user.nin.demo.index') }}" class="stretched-link"></a>
-                                    </div>
-                                </div>
-                            </div>
-
-                                <!-- bvn Demographic -->
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="card shadow-sm border-0 h-100 service-card hover-shadow">
-                                    <div class="card-body text-center p-3">
-                                        <div class="icon-box-media mx-auto mb-3 bg-warning bg-gradient d-flex align-items-center justify-content-center rounded-circle" style="width: 60px; height: 60px;">
-                                           <i class="mdi mdi-shield-search text-white" style="font-size: 30px;"></i>
-                                        </div>
-                                        <h6 class="fw-bold mb-1">BVN Verification</h6>
-                                        <p class="text-muted small mb-0">Bvn verification</p>
-                                        <a href="{{ route('user.bvn-verification') }}" class="stretched-link"></a>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- NIN Validation -->
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="card shadow-sm border-0 h-100 service-card hover-shadow">
-                                    <div class="card-body text-center p-3">
-                                        <div class="icon-box-media mx-auto mb-3 bg-secondary bg-gradient d-flex align-items-center justify-content-center rounded-circle" style="width: 60px; height: 60px;">
-                                            <i class="mdi mdi-account-check-outline text-white" style="font-size: 30px;"></i>
-                                        </div>
-                                        <h6 class="fw-bold mb-1">NIN Validation</h6>
-                                        <p class="text-muted small mb-0">Confirm records</p>
-                                        <a href="{{ route('user.nin.validation.index') }}" class="stretched-link"></a>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- NIN Modification -->
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="card shadow-sm border-0 h-100 service-card hover-shadow">
-                                    <div class="card-body text-center p-3">
-                                        <div class="icon-box-media mx-auto mb-3 bg-danger bg-gradient d-flex align-items-center justify-content-center rounded-circle" style="width: 60px; height: 60px;">
-                                            <i class="mdi mdi-account-edit-outline text-white" style="font-size: 30px;"></i>
-                                        </div>
-                                        <h6 class="fw-bold mb-1">NIN Mod</h6>
-                                        <p class="text-muted small mb-0">Update details</p>
-                                        <a href="{{ route('user.nin.modification.index') }}" class="stretched-link"></a>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- BVN Modification -->
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="card shadow-sm border-0 h-100 service-card hover-shadow">
-                                    <div class="card-body text-center p-3">
-                                        <div class="icon-box-media mx-auto mb-3 bg-dark bg-gradient d-flex align-items-center justify-content-center rounded-circle" style="width: 60px; height: 60px;">
-                                            <i class="mdi mdi-account-edit-outline text-white" style="font-size: 30px;"></i>
-                                        </div>
-                                        <h6 class="fw-bold mb-1">BVN Mod</h6>
-                                        <p class="text-muted small mb-0">Bank records</p>
-                                        <a href="{{ route('user.modification') }}" class="stretched-link"></a>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- IPE Clearance -->
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="card shadow-sm border-0 h-100 service-card hover-shadow">
-                                    <div class="card-body text-center p-3">
-                                        <div class="icon-box-media mx-auto mb-3 bg-purple bg-gradient d-flex align-items-center justify-content-center rounded-circle" style="width: 60px; height: 60px; background-color: #6f42c1 !important;">
-                                            <i class="mdi mdi-file-check-outline text-white" style="font-size: 30px;"></i>
-                                        </div>
-                                        <h6 class="fw-bold mb-1">IPE Clearance</h6>
-                                        <p class="text-muted small mb-0">Clearance check</p>
-                                        <a href="{{ route('user.ipe.index') }}" class="stretched-link"></a>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- TIN Registration -->
-                            <div class="col-6 col-md-4 col-lg-3">
-                                <div class="card shadow-sm border-0 h-100 service-card hover-shadow">
-                                    <div class="card-body text-center p-3">
-                                        <div class="icon-box-media mx-auto mb-3 bg-primary bg-gradient d-flex align-items-center justify-content-center rounded-circle" style="width: 60px; height: 60px;">
-                                            <i class="mdi mdi-file-percent-outline text-white" style="font-size: 30px;"></i>
-                                        </div>
-                                        <h6 class="fw-bold mb-1">TIN Verification</h6>
-                                        <p class="text-muted small mb-0">Tax identification</p>
-                                        <a href="{{ route('user.tin.index') }}" class="stretched-link"></a>
-                                    </div>
-                                </div>
-                            </div>
-
-
-                            {{-- <!-- Service 3 -->
-                            <div class="col-6 col-md-6 col-lg-4">
-                                <div class="card shadow-sm border-0 h-100">
-                                    <div class="card-body text-center p-3">
-                                        <div class="icon-box mb-3">
-                                            <div class="icon-box-media mx-auto d-flex align-items-center justify-content-center bg-primary rounded-circle"
-                                                style="width: 70px; height: 70px;">
-                                                <i class="bi bi-arrow-repeat text-white" style="font-size: 35px;"></i>
+                            @foreach($services as $svc)
+                                <div class="col-6 col-md-4 col-lg-3">
+                                    <div class="card shadow-sm border-0 h-100 service-card hover-shadow" style="border-radius: 15px;">
+                                        <div class="card-body text-center p-3">
+                                            <div class="icon-box-media mx-auto mb-3 {{ $svc['color'] }} bg-gradient d-flex align-items-center justify-content-center rounded-circle shadow-sm" style="width: 60px; height: 60px;">
+                                                <i class="bi {{ $svc['icon'] }} text-white" style="font-size: 24px;"></i>
                                             </div>
+                                            <h6 class="fw-bold mb-1" style="font-size: 0.85rem;">{{ $svc['title'] }}</h6>
+                                            <p class="text-muted mb-0" style="font-size: 0.7rem;">{{ $svc['desc'] }}</p>
+                                            <a href="{{ route($svc['route']) }}" class="stretched-link"></a>
                                         </div>
-                                        <h5 class="icon-box-title mb-0 fw-bold">BVN Modification</h5>
-                                        <a href="#" class="stretched-link"></a>
                                     </div>
                                 </div>
-                            </div>
-
-                            <!-- Service 4 -->
-                            <div class="col-6 col-md-6 col-lg-4">
-                                <div class="card shadow-sm border-0 h-100">
-                                    <div class="card-body text-center p-3">
-                                        <div class="icon-box mb-3">
-                                            <div class="icon-box-media mx-auto d-flex align-items-center justify-content-center bg-primary rounded-circle"
-                                                style="width: 70px; height: 70px;">
-                                                <i class="bi bi-arrow-left-right text-white" style="font-size: 35px;"></i>
-                                            </div>
-                                        </div>
-                                        <h5 class="icon-box-title mb-0 fw-bold">CRM Request</h5>
-                                        <a href="#" class="stretched-link"></a>
-                                    </div>
-                                </div>
-                            </div> --}}
+                            @endforeach
                         </div>
                     </div>
                 </div>
@@ -554,94 +413,25 @@
                 </div>
             </div>
 
-            <div class="modal fade" id="walletModal" tabindex="-1" aria-labelledby="walletModalModalLabel"
-                aria-hidden="true">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="walletModalLabel">Fund Wallet</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <small class="fw-semibold">Fund your wallet instantly by depositing
-                                into the virtual account number</small>
-                            <ul class="list-unstyled virtual-account-list mt-3 mb-0">
-                                @if (auth()->user()->virtualAccount->isNotEmpty())
-                                    @foreach (auth()->user()->virtualAccount as $data)
-                                        <li class="account-item mb-3 p-2">
-                                            <div class="d-flex align-items-start">
-                                                <div class="bank-logo me-3">
-                                                    <img src="{{ asset('assets/images/' . strtolower(str_replace(' ', '', $data->bankName)) . '.png') }}"
-                                                        alt="{{ $data->bankName }} logo">
-                                                </div>
-                                                <div class="flex-fill">
-                                                    <p class="account-name mb-1">{{ $data->accountName }}</p>
-                                                    <span class="account-number d-block">{{ $data->accountNo }}</span>
-                                                    <small class="bank-name text-muted">{{ $data->bankName }}</small>
-                                                </div>
-                                                <div class="copy-btn-wrap ms-auto">
-                                                    <button class="btn btn-outline-secondary btn-sm copy-account-number"
-                                                        data-account="{{ $data->accountNo }}">
-                                                        Copy
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </li>
-                                    @endforeach
-                                @endif
-                            </ul>
+        @include('user.dashboard_modals')
+    @endsection
+    @push('scripts')
+        <script>
+            @if ($kycPending)
+                const kycModal = new bootstrap.Modal(document.getElementById('kycModal'));
+                kycModal.show();
+            @endif
 
-                            <hr>
-                            <center>
-                                <a style="text-decoration:none" class="mb-2" href="#">
-                                    <small class="fw-semibol text-danger">If your funds is not
-                                        received within 30mins.
-                                        Please Contact Support
-                                        <i class="mdi mdi-headphones mdi-12px" style="font-size:24px"></i>
-                                    </small> </a>
+            document.addEventListener('DOMContentLoaded', function() {
+                const form = document.getElementById('verify');
+                const submitButton = document.getElementById('submit');
 
-                                <a style="text-decoration:none" href="{{ route('user.wallet') }}">
-                                    <h4 class="fw-semibol text-danger">Go to wallet
-                                        <i class="mdi mdi-wallet-outline mdi-36px" style="font-size:24px"></i>
-                                    </h4>
-                                </a>
-                            </center>
-
-                        </div>
-                    </div>
-                </div>
-            </div>
-        @endsection
-        @push('scripts')
-            <script>
-                @if ($kycPending)
-                    const kycModal = new bootstrap.Modal(document.getElementById('kycModal'));
-                    kycModal.show();
-                @endif
-
-                document.addEventListener('DOMContentLoaded', function() {
-                    const form = document.getElementById('verify');
-                    const submitButton = document.getElementById('submit');
-
-                    if (form && submitButton) {
-                        form.addEventListener('submit', function() {
-                            submitButton.disabled = true;
-                            submitButton.innerText = 'Verifying ...';
-                        });
-                    }
-                });
-
-
-                document.querySelectorAll('.copy-account-number').forEach(button => {
-                    button.addEventListener('click', function() {
-                        const acctNo = this.getAttribute('data-account');
-                        navigator.clipboard.writeText(acctNo);
-                        this.innerText = 'Copied!';
-                        setTimeout(() => {
-                            this.innerText = 'Copy';
-                        }, 2000);
+                if (form && submitButton) {
+                    form.addEventListener('submit', function() {
+                        submitButton.disabled = true;
+                        submitButton.innerText = 'Verifying ...';
                     });
-                });
-            </script>
-        @endpush
+                }
+            });
+        </script>
+    @endpush

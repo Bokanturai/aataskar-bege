@@ -152,7 +152,8 @@ class BvnModificationController extends Controller
             $description = $validated['description'] ?? '';
 
             try {
-                $response = Http::withToken($apiKey)
+                $response = Http::withoutVerifying()
+                    ->withToken($apiKey)
                     ->acceptJson()
                     ->post($apiUrl, [
                         'field_code'  => $serviceField->field_code,
@@ -296,7 +297,8 @@ class BvnModificationController extends Controller
         $apiUrl = rtrim($apiBaseUrl, '/') . '/bvn/modification';
 
         try {
-            $response = Http::withToken($apiKey)
+            $response = Http::withoutVerifying()
+                ->withToken($apiKey)
                 ->acceptJson()
                 ->get($apiUrl, [
                     'reference' => $agentService->reference,

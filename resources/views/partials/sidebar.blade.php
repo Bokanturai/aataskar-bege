@@ -24,7 +24,8 @@
 
         <!-- Dashboard Section -->
         <li class="nav-item">
-            <a class="nav-link {{ Route::is('user.dashboard') ? 'active' : '' }}" href="{{ route('user.dashboard') }}">
+            <a class="nav-link {{ Route::is('user.dashboard') || Route::is('admin.dashboard') ? 'active' : '' }}" 
+               href="{{ auth()->user()->role == 'admin' ? route('admin.dashboard') : route('user.dashboard') }}">
                 <i class="mdi mdi-view-dashboard menu-icon"></i>
                 <span class="menu-title">Dashboard</span>
             </a>
@@ -140,15 +141,22 @@
                 <i class="mdi mdi-chevron-down ms-auto"></i>
             </a>
             <ul class="sub-menu nav flex-column ps-4" id="bvnSubmenu">
-                     <li class="nav-item">
+                <li class="nav-item">
                     <a class="nav-link {{ Route::is('user.modification') ? 'active' : '' }}"
                         href="{{ route('user.modification') }}">
                         <i class="mdi mdi-account-edit-outline menu-icon"></i> BVN Modification
                     </a>
-
-                      <a class="nav-link {{ Route::is('user.bvn-crm') ? 'active' : '' }}"
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ Route::is('user.bvn-crm') ? 'active' : '' }}"
                         href="{{ route('user.bvn-crm') }}">
-                        <i class="mdi mdi-account-edit-outline menu-icon"></i> BVN CRM
+                        <i class="mdi mdi-account-details-outline menu-icon"></i> BVN CRM
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ Route::is('user.phone.search.*') ? 'active' : '' }}"
+                        href="{{ route('user.phone.search.index') }}">
+                        <i class="mdi mdi-phone-search-outline menu-icon"></i> BVN Search
                     </a>
                 </li>
             </ul>
@@ -183,8 +191,13 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {{ Route::is('admin.services.*') ? 'active' : '' }}" href="{{ route('admin.services.index') }}">
+                        <a class="nav-link {{ Route::is('admin.services.index') ? 'active' : '' }}" href="{{ route('admin.services.index') }}">
                             <i class="mdi mdi-layers-outline menu-icon"></i> Services
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ Route::is('admin.services.bvn-crm.index') ? 'active' : '' }}" href="{{ route('admin.services.bvn-crm.index') }}">
+                            <i class="mdi mdi-account-details-outline menu-icon"></i> BVN CRM & Search
                         </a>
                     </li>
                     <li class="nav-item">
