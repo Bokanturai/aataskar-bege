@@ -9,8 +9,6 @@
         $nin = $verificationData['nin'] ?? 'N/A';
         $surname = $verificationData['surname'] ?? 'N/A';
         $firstName = $verificationData['firstName'] ?? 'N/A';
-        $qrData = "NIN: $nin | Name: $surname $firstName | Status: Verified";
-        $qrUrl = "https://chart.googleapis.com/chart?chs=150x150&cht=qr&chl=" . urlencode($qrData);
     @endphp
 
     <div class="row align-items-start">
@@ -27,13 +25,7 @@
                     </div>
                 @endif
             </div>
-            
-            <!-- QR Code Section -->
-            <div class="d-inline-block p-2 border rounded-3 bg-white shadow-sm mb-2" style="width: 100px;">
-                <img src="{{ $qrUrl }}" alt="QR Code" class="img-fluid">
-                <div class="mt-1 small text-muted fw-bold" style="font-size: 0.6rem;">VERIFIED</div>
-            </div>
-            <div class="mt-1 fw-bold text-uppercase small text-muted">Identity Assets</div>
+            <div class="mt-1 fw-bold text-uppercase small text-muted">ID Photo</div>
         </div>
         
         <!-- Details Table -->
