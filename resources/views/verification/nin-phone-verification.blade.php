@@ -99,7 +99,6 @@
                     @endphp
                     @include('partials.verification_result_card', [
                         'downloadRoutes' => [
-                            'basic'    => !empty($verificationData['nin']) ? route('user.nin.phone.basic', $verificationData['nin']) : '#',
                             'regular'  => !empty($verificationData['nin']) ? route('user.nin.phone.regular', $verificationData['nin']) : '#',
                             'standard' => !empty($verificationData['nin']) ? route('user.nin.phone.standard', $verificationData['nin']) : '#',
                             'premium'  => !empty($verificationData['nin']) ? route('user.nin.phone.premium', $verificationData['nin']) : '#',

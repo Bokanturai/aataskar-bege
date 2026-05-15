@@ -95,13 +95,15 @@
                 @endphp
 
                 @foreach($slipTypes as $slip)
-                    <div class="col-6 col-md-4 col-lg">
-                        <button onclick="confirmDownload('{{ $slip['route'] }}', '{{ $slip['name'] }} Slip', {{ $slip['price'] }})" 
-                            class="btn {{ $slip['color'] }} w-100 py-2 rounded-3 {{ $slip['name'] === 'Regular' ? 'text-white' : '' }}">
-                            <i class="mdi {{ $slip['icon'] }} me-1"></i> {{ $slip['name'] }} <br>
-                            <small class="fw-bold">₦{{ number_format($slip['price'], 2) }}</small>
-                        </button>
-                    </div>
+                    @if($slip['route'] !== '#')
+                        <div class="col-6 col-md-4 col-lg">
+                            <button onclick="confirmDownload('{{ $slip['route'] }}', '{{ $slip['name'] }} Slip', {{ $slip['price'] }})" 
+                                class="btn {{ $slip['color'] }} w-100 py-2 rounded-3 {{ $slip['name'] === 'Regular' ? 'text-white' : '' }}">
+                                <i class="mdi {{ $slip['icon'] }} me-1"></i> {{ $slip['name'] }} <br>
+                                <small class="fw-bold">₦{{ number_format($slip['price'], 2) }}</small>
+                            </button>
+                        </div>
+                    @endif
                 @endforeach
             @else
                 <div class="col-12">
