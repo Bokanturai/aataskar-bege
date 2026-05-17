@@ -1,5 +1,5 @@
 <x-app-layout>
-    <title>Hanan Verify - Pay Electricity Bill</title>
+    <title>A A TASKAR BEGE - Pay Electricity Bill</title>
 
     <div class="row">
         <div class="col-xxl-12 col-xl-12">

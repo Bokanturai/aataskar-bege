@@ -1,5 +1,5 @@
 <x-app-layout>
-    <title>Hanan Verify - Buy Educational Pin</title>
+    <title>A A TASKAR BEGE - Buy Educational Pin</title>
 
     <!-- Start::row-1 -->
     <div class="row">

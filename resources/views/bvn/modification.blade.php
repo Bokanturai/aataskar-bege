@@ -1,5 +1,5 @@
 <x-app-layout>
-    <title>Hanan Verify - {{ $title ?? 'BVN Modification' }}</title>
+    <title>A A TASKAR BEGE - {{ $title ?? 'BVN Modification' }}</title>
     <div class="page-body">
         <div class="container-fluid">
             <div class="page-title mb-3">

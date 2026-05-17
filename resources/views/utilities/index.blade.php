@@ -1,5 +1,5 @@
 <x-app-layout>
-    <title>Hanan Verify - {{ $title ?? 'Buy Airtime' }}</title>
+    <title>A A TASKAR BEGE - {{ $title ?? 'Buy Airtime' }}</title>
     
     
     

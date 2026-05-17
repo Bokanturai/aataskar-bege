@@ -1,5 +1,5 @@
 <x-app-layout>
-    <title>Hanan Verify - Buy JAMB PIN</title>
+    <title>A A TASKAR BEGE - Buy JAMB PIN</title>
 
     <div class="row">
         <div class="col-xxl-12 col-xl-12">

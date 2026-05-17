@@ -164,7 +164,7 @@
         <!--end bvn services Section -->
 
         <li class="nav-item">
-            <a class="nav-link" href="{{ route('user.support') }}">
+            <a class="nav-link {{ Route::is('user.support') ? 'active' : '' }}" href="{{ route('user.support') }}">
                 <i class="mdi mdi-lifebuoy menu-icon"></i>
                 <span class="menu-title">Support</span>
             </a>

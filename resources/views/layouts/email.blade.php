@@ -16,7 +16,7 @@
                 <div class="navbar-brand-box">
                     <a href="{{ url('/') }}" class="logo logo-light" target="_blank">
                         <span class="logo-lg">
-                            <img src="{{ asset($settings && $settings->logo ? 'assets/images/' . $settings->logo : 'assets/images/img/logo.png') }}"
+                            <img src="{{ asset($settings && $settings->logo ? 'assets/images/' . $settings->logo : 'assets/images/logo.png') }}"
                                 alt="" height="50">
                         </span>
                     </a>

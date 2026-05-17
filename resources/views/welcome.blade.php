@@ -4,26 +4,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hanan Cafe | Nigeria's Leading Digital Agency for NIN, BVN & CAC</title>
+    <title>A A TASKAR BEGE | Nigeria's Leading Digital Agency for NIN, BVN & CAC</title>
     
     <!-- SEO Meta Tags -->
-    <meta name="description" content="Hanan Cafe provides professional and secure agency services including NIN verification, BVN enrollment, JAMB pins, and CAC business registrations in Nigeria.">
-    <meta name="keywords" content="NIN Nigeria, BVN enrollment, JAMB pin, CAC registration, Hanan Cafe, Zuru agency, digital services Nigeria">
-    <meta name="author" content="Hanan Cafe">
+    <meta name="description" content="A A TASKAR BEGE provides professional and secure agency services including NIN verification, BVN enrollment, JAMB pins, and CAC business registrations in Nigeria.">
+    <meta name="keywords" content="NIN Nigeria, BVN enrollment, JAMB pin, CAC registration, A A TASKAR BEGE, Zuru agency, digital services Nigeria">
+    <meta name="author" content="A A TASKAR BEGE">
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ url('/') }}">
-    <meta property="og:title" content="Hanan Cafe | Premium Agency Services & Solutions">
+    <meta property="og:title" content="A A TASKAR BEGE | Premium Agency Services & Solutions">
     <meta property="og:description" content="Streamlined, secure, and professional solutions for NIN, BVN, JAMB, and CAC registrations.">
-    <meta property="og:image" content="{{ asset('assets/images/img/logo.png') }}">
+    <meta property="og:image" content="{{ asset('assets/images/logo.png') }}">
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="{{ url('/') }}">
-    <meta property="twitter:title" content="Hanan Cafe | Premium Agency Services & Solutions">
+    <meta property="twitter:title" content="A A TASKAR BEGE | Premium Agency Services & Solutions">
     <meta property="twitter:description" content="Streamlined, secure, and professional solutions for NIN, BVN, JAMB, and CAC registrations.">
-    <meta property="twitter:image" content="{{ asset('assets/images/img/logo.png') }}">
+    <meta property="twitter:image" content="{{ asset('assets/images/logo.png') }}">
 
     <!-- Scripts & Fonts -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -31,7 +31,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="icon" href="{{ asset('assets/images/img/logo.png') }}" type="image/x-icon">
+    <link rel="icon" href="{{ asset('assets/images/logo.png') }}" type="image/x-icon">
 
     <script>
         tailwind.config = {
@@ -150,8 +150,8 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-20 glass mt-4 rounded-2xl px-6">
                 <div class="flex items-center gap-3">
-                    <img src="{{ asset('assets/images/img/logo1.jpg') }}" alt="Logo" class="h-10 w-auto rounded-lg" />
-                    <span class="text-xl font-heading font-bold text-slate-800 tracking-tight">Hanan Cafe</span>
+                    <img src="{{ asset('assets/images/logo.png') }}" alt="Logo" class="h-10 w-auto rounded-lg" />
+                    <span class="text-xl font-heading font-bold text-slate-800 tracking-tight">A A TASKAR BEGE</span>
                 </div>
                 
                 <div class="hidden md:flex items-center gap-8">
@@ -191,7 +191,7 @@
                             Elevate Your <span class="text-gradient">Agency Experience</span>
                         </h1>
                         <p class="text-lg text-slate-600 leading-relaxed mb-10 max-w-lg">
-                            Hanan Cafe provides professional-grade solutions for NIN, BVN, JAMB, and CAC registrations. Streamlined, secure, and built for your growth.
+                            A A TASKAR BEGE provides professional-grade solutions for NIN, BVN, JAMB, and CAC registrations. Streamlined, secure, and built for your growth.
                         </p>
                         <div class="flex flex-wrap gap-4">
                             <button class="btn-primary">Explore Services</button>
@@ -211,7 +211,7 @@
 
                     <div class="relative animate-fade-in-up" style="animation-delay: 0.3s">
                         <div class="relative z-10 rounded-[2.5rem] overflow-hidden shadow-2xl animate-float">
-                            <img src="{{ asset('assets/images/img/img03.jpg') }}" alt="Professional digital agency services in Nigeria - Hanan Cafe" class="w-full h-auto object-cover" 
+                            <img src="{{ asset('assets/images/img/img03.jpg') }}" alt="Professional digital agency services in Nigeria - A A TASKAR BEGE" class="w-full h-auto object-cover" 
                                  onerror="this.src='https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&q=80&w=1000'">
                         </div>
                         <!-- Decorative Elements -->
@@ -299,7 +299,7 @@
                 <div class="grid lg:grid-cols-2 gap-16 items-center">
                     <div class="relative order-2 lg:order-1 animate-fade-in-up">
                         <div class="relative z-10 rounded-[2.5rem] overflow-hidden shadow-2xl">
-                            <img src="{{ asset('assets/images/img/img (8).jpg') }}" alt="About Hanan Cafe" class="w-full h-[500px] object-cover"
+                            <img src="{{ asset('assets/images/img/img (8).jpg') }}" alt="About A A TASKAR BEGE" class="w-full h-[500px] object-cover"
                                  onerror="this.src='https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&q=80&w=1000'">
                         </div>
                         <!-- Stats Overlay -->
@@ -321,7 +321,7 @@
                         <h2 class="text-primary-500 font-bold tracking-widest uppercase text-sm mb-4">Who We Are</h2>
                         <h3 class="text-4xl lg:text-5xl font-heading font-bold text-slate-900 mb-8">Your Trusted Partner in <span class="text-gradient">Digital Growth</span></h3>
                         <p class="text-slate-600 text-lg leading-relaxed mb-8">
-                            Hanan Cafe was founded on the principle of making essential digital services accessible to everyone. We bridge the gap between complex governmental requirements and the everyday user.
+                            A A TASKAR BEGE was founded on the principle of making essential digital services accessible to everyone. We bridge the gap between complex governmental requirements and the everyday user.
                         </p>
                         
                         <div class="space-y-6 mb-10">
@@ -376,7 +376,7 @@
                                 </div>
                                 <div>
                                     <p class="font-bold text-slate-900">Headquarters</p>
-                                    <p class="text-slate-500">Tashar Rimi Street, Zuru, Kebbi State</p>
+                                    <p class="text-slate-500">Tudun wada street opposite primary school mafara</p>
                                 </div>
                             </div>
                             <div class="flex items-start gap-6">
@@ -385,7 +385,7 @@
                                 </div>
                                 <div>
                                     <p class="font-bold text-slate-900">Phone Support</p>
-                                    <p class="text-slate-500">+234 703 057 4761</p>
+                                    <p class="text-slate-500">+234 8030564012</p>
                                 </div>
                             </div>
                             <div class="flex items-start gap-6">
@@ -394,7 +394,7 @@
                                 </div>
                                 <div>
                                     <p class="font-bold text-slate-900">Email Address</p>
-                                    <p class="text-slate-500">hanantech@gmail.com</p>
+                                    <p class="text-slate-500">abdulazizabubakartma2030@gmail.com</p>
                                 </div>
                             </div>
                         </div>
@@ -436,8 +436,8 @@
                 <!-- Brand -->
                 <div class="lg:col-span-1">
                     <div class="flex items-center gap-3 mb-6">
-                        <img src="{{ asset('assets/images/img/logo.png') }}" alt="Logo" class="h-12 w-auto" />
-                        <span class="text-xl font-heading font-bold text-white">Hanan Cafe</span>
+                        <img src="{{ asset('assets/images/logo.png') }}" alt="Logo" class="h-12 w-auto" />
+                        <span class="text-xl font-heading font-bold text-white">A A TASKAR BEGE</span>
                     </div>
                     <p class="mb-8 text-sm leading-relaxed">
                         Leading the way in digital agency services across Nigeria. We provide secure, efficient, and reliable solutions for business and individual needs.
@@ -495,7 +495,7 @@
             </div>
 
             <div class="pt-8 border-t border-slate-900 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
-                <p>&copy; {{ date('Y') }} Hanan Cafe Agency. All rights reserved.</p>
+                <p>&copy; {{ date('Y') }} A A TASKAR BEGE Agency. All rights reserved.</p>
                 <div class="flex gap-6">
                     <a href="#" class="hover:text-white">Privacy Policy</a>
                     <a href="#" class="hover:text-white">Terms</a>

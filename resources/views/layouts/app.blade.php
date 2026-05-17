@@ -37,7 +37,7 @@
     <link rel="stylesheet" href="{{ asset('assets/index/css/style-three11.css') }}">
     <!-- Favicon -->
      <link rel="shortcut icon"
-        href="{{ asset($settings && $settings->favicon ? 'assets/images/' . $settings->favicon : 'assets/images/img/logo.png') }}">
+        href="{{ asset($settings && $settings->favicon ? 'assets/images/' . $settings->favicon : 'assets/images/logo.png') }}">
 
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

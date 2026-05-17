@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
 @section('content')
-    <title>Hanan Verify - Transaction Receipt</title>
+    <title>A A TASKAR BEGE - Transaction Receipt</title>
 
     @push('styles')
     <style>
@@ -183,7 +183,7 @@
             <div class="receipt-body">
                 <!-- Brand Header -->
                 <div class="receipt-brand">
-                    <h4>Hanan Verify</h4>
+                    <h4>A A TASKAR BEGE</h4>
                     <p class="text-muted small mb-0">Official Transaction Receipt</p>
                 </div>
 

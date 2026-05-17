@@ -1,5 +1,5 @@
 <x-app-layout>
-    <title>Hanan Verify - {{ $title ?? 'TIN Verification' }}</title>
+    <title>A A TASKAR BEGE - {{ $title ?? 'TIN Verification' }}</title>
     
     <div class="page-body">
         <div class="container-fluid">

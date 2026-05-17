@@ -230,10 +230,7 @@ Route::middleware(['auth', 'user.active'])->group(function () {
         Route::put('/profile', [UserController::class, 'updateProfile'])->name('profile.update');
 
         Route::get('/support', function () {
-            $phoneNumber = env('phoneNumber');
-            $message = urlencode(env('message'));
-            $url = env('API_URL') . "{$phoneNumber}&text={$message}";
-            return redirect($url);
+            return view('user.support');
         })->name('support');
     });
 

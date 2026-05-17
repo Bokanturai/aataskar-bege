@@ -1,5 +1,5 @@
 <x-app-layout>
-      <title>Hanan Verify - Services Management</title>
+      <title>A A TASKAR BEGE - Services Management</title>
 
     <div class="content">
         <!-- Page Header -->

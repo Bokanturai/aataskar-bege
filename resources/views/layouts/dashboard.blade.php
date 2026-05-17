@@ -16,7 +16,7 @@
     <link rel="stylesheet" href="{{ asset('assets/css/bootstrap-datepicker.min.css') }}">
     <!-- End plugin css for this page -->
     <link rel="shortcut icon"
-        href="{{ asset($settings && $settings->favicon ? 'assets/images/' . $settings->favicon : 'assets/images/img/logo.png') }}">
+        href="{{ asset($settings && $settings->favicon ? 'assets/images/' . $settings->favicon : 'assets/images/logo.png') }}">
     <!-- inject:css -->
     <link rel="stylesheet" href="{{ asset('assets/css/style.css') }}">
     <!-- endinject -->

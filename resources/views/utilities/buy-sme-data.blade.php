@@ -1,5 +1,5 @@
 <x-app-layout>
-    <title>Hanan Verify - SME Data Plans</title>
+    <title>A A TASKAR BEGE - SME Data Plans</title>
 
     <div class="row">
         <div class="col-xxl-12 col-xl-12">

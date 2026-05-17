@@ -20,11 +20,11 @@
         </ul>
         <div class="text-center navbar-brand-wrapper d-flex align-items-center justify-content-center">
             <a class="navbar-brand brand-logo" href="{{ route('user.dashboard') }}"> <img
-                    src="{{ asset($settings && $settings->logo ? 'assets/images/' . $settings->logo : 'assets/images/img/logo.png') }}"
+                    src="{{ asset($settings && $settings->logo ? 'assets/images/' . $settings->logo : 'assets/images/logo.png') }}"
                     alt="logo"></a>
 
             <a class="navbar-brand brand-logo-mini" href="{{ route('user.dashboard') }}">
-                <img src="{{ asset($settings && $settings->mini_logo ? 'assets/images/' . $settings->mini_logo : 'assets/images/img/logo.png') }}"
+                <img src="{{ asset($settings && $settings->mini_logo ? 'assets/images/' . $settings->mini_logo : 'assets/images/mini-logo.png') }}"
                     alt="logo">
             </a>
         </div>
