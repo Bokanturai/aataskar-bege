@@ -151,9 +151,10 @@
 
                                 <!-- Terms Checkbox -->
                                 <div class="col-12">
-                                    <div class="form-check custom-checkbox">
-                                        <input type="checkbox" class="form-check-input" id="termsCheck" required>
-                                        <label class="form-check-label small" for="termsCheck">
+                                    <div class="form-check">
+                                        <label class="form-check-label text-muted small">
+                                            <input type="checkbox" class="form-check-input" id="termsCheck" required>
+                                            <i class="input-helper"></i>
                                             I agree to the BVN modification policies and confirm the accuracy of this data.
                                         </label>
                                     </div>

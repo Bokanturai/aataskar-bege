@@ -265,16 +265,25 @@
                                 <label class="btn btn-sm btn-soft-primary" for="addImage">
                                     <i class="mdi mdi-upload me-1"></i> Upload Icon
                                 </label>
-                                <input type="file" name="image" id="addImage" class="d-none" accept="image/*">
+                                <input type="file" name="image" id="addImage" class="d-none @error('image') is-invalid @enderror" accept="image/*">
+                                @error('image')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
                             </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Service Name</label>
-                            <input type="text" name="name" class="form-control" placeholder="e.g., BVN Enrollment" required>
+                            <input type="text" name="name" class="form-control @error('name') is-invalid @enderror" placeholder="e.g., BVN Enrollment" value="{{ old('name') }}" required>
+                            @error('name')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Description</label>
-                            <textarea name="description" class="form-control" rows="3" placeholder="Brief description of the service..."></textarea>
+                            <textarea name="description" class="form-control @error('description') is-invalid @enderror" rows="3" placeholder="Brief description of the service...">{{ old('description') }}</textarea>
+                            @error('description')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
                         </div>
                         <div class="mb-3">
                             <div class="form-check form-switch">
@@ -471,6 +480,15 @@
                     confirmAction('editServiceForm');
                 });
             }
+
+            // Auto-open modal if validation fails
+            @if($errors->any())
+                const addModalEl = document.getElementById('addServiceModal');
+                if (addModalEl) {
+                    const addServiceModal = new bootstrap.Modal(addModalEl);
+                    addServiceModal.show();
+                }
+            @endif
         });
 
         function confirmDelete(id, name) {

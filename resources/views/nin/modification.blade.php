@@ -278,9 +278,10 @@
 
                                 {{-- Terms --}}
                                 <div class="col-12">
-                                    <div class="form-check custom-checkbox">
-                                        <input class="form-check-input" id="termsCheckbox" type="checkbox" required>
-                                        <label class="form-check-label small" for="termsCheckbox">
+                                    <div class="form-check">
+                                        <label class="form-check-label text-muted small">
+                                            <input class="form-check-input" id="termsCheckbox" type="checkbox" required>
+                                            <i class="input-helper"></i>
                                             I confirm that the provided information is accurate and agree to the modification policy.
                                         </label>
                                     </div>
