@@ -145,7 +145,7 @@ class NinValidationController extends Controller
                 'user_id' => $user->id,
                 'service_id' => $serviceField->service_id,
                 'service_field_id' => $serviceField->id,
-                'field_code' => $serviceField->field_code,
+                'field_code' => '015',
                 'transaction_id' => $transaction->id,
                 'service_type' => 'NIN_VALIDATION',
                 'nin' => $request->nin,
