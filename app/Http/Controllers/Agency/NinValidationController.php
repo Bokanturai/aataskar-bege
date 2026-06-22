@@ -14,11 +14,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use App\Http\Controllers\Traits\Refundable;
+
 
 class NinValidationController extends Controller
 {
-    use Refundable;
+
     public function index(Request $request)
     {
         $validationService = Service::where('name', 'Validation')->first();
@@ -176,13 +176,12 @@ class NinValidationController extends Controller
         } catch (\Exception $e) {
             Log::error('NIN Validation Store API/System Error', ['error' => $e->getMessage()]);
 
-            // Auto refund using the trait
-            $this->updateStatusAndRefund($agentService, [
+            $agentService->update([
                 'status' => 'failed',
                 'comment' => 'API Error: ' . $e->getMessage(),
             ]);
 
-            return back()->with('error', 'API Submission Failed: ' . $e->getMessage() . '. Wallet refunded.');
+            return back()->with('error', 'API Submission Failed: ' . $e->getMessage());
         }
     }
 
@@ -227,7 +226,7 @@ class NinValidationController extends Controller
                 $updateData['status'] = $this->normalizeStatus($apiResponse['response']);
             }
 
-            $this->updateStatusAndRefund($agentService, $updateData);
+            $agentService->update($updateData);
 
             if ($request->wantsJson() || $request->is('api/*')) {
                 return response()->json([
@@ -275,7 +274,7 @@ class NinValidationController extends Controller
                     $updateData['status'] = $this->normalizeStatus($data['status']);
                 }
 
-                $this->updateStatusAndRefund($submission, $updateData);
+                $submission->update($updateData);
             }
         }
 
