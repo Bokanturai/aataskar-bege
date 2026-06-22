@@ -108,182 +108,19 @@ class NINDemoVerificationController extends Controller
         // 3. Determine service price based on user role
         $servicePrice = $serviceField->getPriceForUserType($user->role);
 
-        // 4. Check wallet
-        $wallet = Wallet::where('user_id', $user->id)->firstOrFail();
-
-        if ($wallet->balance < $servicePrice) {
-            return back()->with([
-                'status' => 'error',
-                'message' => 'Insufficient wallet balance. You need NGN ' . number_format($servicePrice - $wallet->balance, 2)
-            ]);
-        }
-
-        try {
-            $apiKey = env('AREWA_API_TOKEN');
-            $baseUrl = env('AREWA_BASE_URL');
-            $url = rtrim($baseUrl, '/') . '/nin/demo';
-
-            $payload = [
-                'firstName' => $request->firstName,
-                'lastName' => $request->lastName,
-                'gender' => $request->gender,
-                'dateOfBirth' => $request->dateOfBirth,
-                'ref' => 'REF-' . Str::random(10),
-            ];
-
-            $response = Http::withoutVerifying()
-                ->withToken($apiKey)
-                ->acceptJson()
-                ->timeout(30)
-                ->post($url, $payload);
-
-            $data = $response->json();
-
-            // Check for successful response
-            if ($response->successful() && isset($data['status']) && $data['status'] === true) {
-                if (isset($data['api_response']['status']) && $data['api_response']['status'] === true) {
-                     return $this->processSuccessTransaction(
-                        $wallet,
-                        $servicePrice,
-                        $user,
-                        $serviceField,
-                        $service,
-                        $data
-                    );
-                }
-            }
-
-            // Handle different error scenarios
-            $errorMessage = $data['message'] ?? 'Verification failed. Please check your details and try again.';
-            
-            // Check if it's an upstream provider error
-            if (isset($data['message']) && (
-                str_contains(strtolower($data['message']), 'upstream') ||
-                str_contains(strtolower($data['message']), 'nimc') ||
-                str_contains(strtolower($data['message']), 'unavailable') ||
-                str_contains(strtolower($data['message']), 'service is currently')
-            )) {
-                \Log::warning('NIMC Service Unavailable', [
-                    'firstName' => $request->firstName,
-                    'lastName' => $request->lastName,
-                    'user_id' => $user->id,
-                    'response' => $data
-                ]);
-                
-                return back()->with([
-                    'status' => 'warning',
-                    'message' => $errorMessage . ' This is a temporary issue with the verification service provider.'
-                ]);
-            }
-
-            // Log API errors for debugging
-            \Log::error('NIN Demo Verification API Error', [
-                'firstName' => $request->firstName,
-                'lastName' => $request->lastName,
-                'user_id' => $user->id,
-                'status_code' => $response->status(),
-                'response' => $data
-            ]);
-
-            return back()->with([
-                'status' => 'error',
-                'message' => $errorMessage
-            ]);
-
-        } catch (\Illuminate\Http\Client\ConnectionException $e) {
-            \Log::error('NIN Demo Verification Connection Error', [
-                'firstName' => $request->firstName ?? 'N/A',
-                'lastName' => $request->lastName ?? 'N/A',
-                'user_id' => $user->id,
-                'error' => $e->getMessage()
-            ]);
-            
-            return back()->with([
-                'status' => 'error',
-                'message' => 'Unable to connect to verification service. Please check your internet connection and try again.'
-            ]);
-        } catch (\Illuminate\Http\Client\RequestException $e) {
-            \Log::error('NIN Demo Verification Request Error', [
-                'firstName' => $request->firstName ?? 'N/A',
-                'lastName' => $request->lastName ?? 'N/A',
-                'user_id' => $user->id,
-                'error' => $e->getMessage()
-            ]);
-            
-            return back()->with([
-                'status' => 'error',
-                'message' => 'Verification request failed. Please try again later.'
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('NIN Demo Verification System Error', [
-                'firstName' => $request->firstName ?? 'N/A',
-                'lastName' => $request->lastName ?? 'N/A',
-                'user_id' => $user->id,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return back()->with([
-                'status' => 'error',
-                'message' => 'A system error occurred. Please contact support if this persists.'
-            ]);
-        }
-    }
-
-    /**
-     * Process successful transaction (Charge + Verification Record)
-     */
-    private function processSuccessTransaction($wallet, $servicePrice, $user, $serviceField, $service, $apiResponse)
-    {
         DB::beginTransaction();
-
         try {
-            // Extract data from API response - handle both array and single object
-            $dataArray = $apiResponse['api_response']['data']['data'] ?? [];
-            
-            // Get the first record if it's an array, otherwise use empty array
-            $ninData = [];
-            if (is_array($dataArray) && !empty($dataArray)) {
-                $ninData = isset($dataArray[0]) ? $dataArray[0] : $dataArray;
+            // Lock wallet and check balance
+            $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->firstOrFail();
+
+            if ($wallet->balance < $servicePrice) {
+                throw new \Exception('Insufficient wallet balance. You need NGN ' . number_format($servicePrice - $wallet->balance, 2) . ' more.');
             }
-            
-            // Log if no data received but continue with transaction
-            if (empty($ninData)) {
-                \Log::warning('NIN Demo Verification - No data in response', [
-                    'user_id' => $user->id,
-                    'response' => $apiResponse
-                ]);
-            }
-            
-            // Check for masked/suspended NIN data (indicated by ****)
-            $isSuspended = false;
-            $suspendedFields = [];
-            
-            // Check critical fields for masking
-            $criticalFields = ['firstname', 'surname', 'nin', 'telephoneno'];
-            foreach ($criticalFields as $field) {
-                if (isset($ninData[$field]) && str_contains($ninData[$field], '****')) {
-                    $isSuspended = true;
-                    $suspendedFields[] = $field;
-                }
-            }
-            
-            // Log if suspended NIN is detected
-            if ($isSuspended) {
-                \Log::warning('NIN Demo Verification - Suspended NIN Detected', [
-                    'user_id' => $user->id,
-                    'suspended_fields' => $suspendedFields,
-                    'nin_data' => $ninData
-                ]);
-            }
-            
+
             $transactionRef = 'D1' . (time() % 1000000000) . '-' . mt_rand(100, 999);
             $performedBy = $user->first_name . ' ' . $user->last_name;
 
-            // Determine status based on whether NIN is suspended
-            $transactionStatus = $isSuspended ? 'suspended' : 'pending';
-            $verificationStatus = $isSuspended ? 'suspended' : 'pending';
-
+            // Create initial debit transaction
             $transaction = Transaction::create([
                 'referenceId' => $transactionRef,
                 'user_id' => $user->id,
@@ -297,68 +134,188 @@ class NINDemoVerificationController extends Controller
             // Deduct wallet balance
             $wallet->decrement('balance', $servicePrice);
 
-            Verification::create([
-                'user_id' => $user->id,
-                'service_field_id' => $serviceField->id,
-                'service_id' => $service->id,
-                'transaction_id' => $transaction->id,
-                'reference' => $transactionRef,
-                'number_nin' => $ninData['nin'] ?? null,
-                'idno' => $ninData['nin'] ?? null,
-                'firstname' => $ninData['firstname'] ?? null,
-                'middlename' => $ninData['middlename'] ?? null,
-                'surname' => $ninData['surname'] ?? null,
-                'birthdate' =>  $ninData['birthdate'] ?? null,
-                'gender' => $ninData['gender'] ?? null,
-                'telephoneno' => $ninData['telephoneno'] ?? null,
-                'photo_path' => $ninData['photo'] ?? null,
-                'signature_path' => $ninData['signature'] ?? null,
-                'residence_state' => $ninData['residence_state'] ?? null,
-                'residence_lga' => $ninData['residence_lga'] ?? null,
-                'residence_town' => $ninData['residence_town'] ?? null,
-                'residence_address' => $ninData['residence_AdressLine1'] ?? null,
-                'self_origin_state' => $ninData['self_origin_state'] ?? null,
-                'trackingId' => $ninData['trackingId'] ?? null,
-                'performed_by'    => $performedBy,
-                'submission_date' => Carbon::now(),
-                'status' => 'pending',
-            ]);
-
             DB::commit();
 
-            // Flash normalized verification data for Blade
-            session()->flash('verification', [
-                'data' => [
-                    'nin' => $ninData['nin'] ?? 'N/A',
-                    'firstName' => $ninData['firstname'] ?? 'N/A',
-                    'surname' => $ninData['surname'] ?? 'N/A',
-                    'middleName' => $ninData['middlename'] ?? 'N/A',
-                    'birthDate' => $ninData['birthdate'] ?? 'N/A',
-                    'gender' => $ninData['gender'] ?? 'N/A',
-                    'telephoneNo' => $ninData['telephoneno'] ?? 'N/A',
-                    'photo' => $ninData['photo'] ?? null,
-                ]
-            ]);
-
-            // Prepare success message with warning if suspended
-            $message = "NIN Demographic Verification successful. Reference: {$transactionRef}. Charged: NGN " . number_format($servicePrice, 2);
-            
-            if ($isSuspended) {
-                $message .= " | WARNING: This NIN appears to be suspended or restricted. The verification service returned masked data (****). Please contact NIMC for assistance.";
-            }
-
-            return redirect()->route('user.nin.demo.index')->with([
-                'status' => $isSuspended ? 'warning' : 'success',
-                'message' => $message,
-            ]);
         } catch (\Exception $e) {
-            DB::rollBack();
-            report($e);
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
             return back()->with([
                 'status' => 'error',
-                'message' => 'Transaction failed: ' . $e->getMessage()
-            ]);
+                'message' => $e->getMessage()
+            ])->withInput();
         }
+
+        // Call API outside transaction
+        try {
+            $apiKey = env('AREWA_API_TOKEN');
+            $baseUrl = env('AREWA_BASE_URL');
+            $url = rtrim($baseUrl, '/') . '/nin/demo';
+
+            $payload = [
+                'firstName' => $request->firstName,
+                'lastName' => $request->lastName,
+                'gender' => $request->gender,
+                'dateOfBirth' => $request->dateOfBirth,
+                'ref' => 'REF-' . Str::random(10),
+            ];
+
+            $response = Http::withToken($apiKey)
+                ->acceptJson()
+                ->timeout(30)
+                ->post($url, $payload);
+
+            $data = $response->json();
+
+            // Check for successful response
+            if ($response->successful() && isset($data['status']) && $data['status'] === true) {
+                if (isset($data['api_response']['status']) && $data['api_response']['status'] === true) {
+                    
+                    DB::beginTransaction();
+                    try {
+                        // Extract data from API response
+                        $dataArray = $data['api_response']['data']['data'] ?? [];
+                        
+                        $ninData = [];
+                        if (is_array($dataArray) && !empty($dataArray)) {
+                            $ninData = isset($dataArray[0]) ? $dataArray[0] : $dataArray;
+                        }
+                        
+                        if (empty($ninData)) {
+                            \Log::warning('NIN Demo Verification - No data in response', [
+                                'user_id' => $user->id,
+                                'response' => $data
+                            ]);
+                        }
+                        
+                        // Check for masked/suspended NIN data (indicated by ****)
+                        $isSuspended = false;
+                        $suspendedFields = [];
+                        
+                        $criticalFields = ['firstname', 'surname', 'nin', 'telephoneno'];
+                        foreach ($criticalFields as $field) {
+                            if (isset($ninData[$field]) && str_contains($ninData[$field], '****')) {
+                                $isSuspended = true;
+                                $suspendedFields[] = $field;
+                            }
+                        }
+                        
+                        if ($isSuspended) {
+                            \Log::warning('NIN Demo Verification - Suspended NIN Detected', [
+                                'user_id' => $user->id,
+                                'suspended_fields' => $suspendedFields,
+                                'nin_data' => $ninData
+                            ]);
+                        }
+
+                        Verification::create([
+                            'user_id' => $user->id,
+                            'service_field_id' => $serviceField->id,
+                            'service_id' => $service->id,
+                            'transaction_id' => $transaction->id,
+                            'reference' => $transactionRef,
+                            'number_nin' => $ninData['nin'] ?? null,
+                            'idno' => $ninData['nin'] ?? null,
+                            'firstname' => $ninData['firstname'] ?? null,
+                            'middlename' => $ninData['middlename'] ?? null,
+                            'surname' => $ninData['surname'] ?? null,
+                            'birthdate' =>  $ninData['birthdate'] ?? null,
+                            'gender' => $ninData['gender'] ?? null,
+                            'telephoneno' => $ninData['telephoneno'] ?? null,
+                            'photo_path' => $ninData['photo'] ?? null,
+                            'signature_path' => $ninData['signature'] ?? null,
+                            'residence_state' => $ninData['residence_state'] ?? null,
+                            'residence_lga' => $ninData['residence_lga'] ?? null,
+                            'residence_town' => $ninData['residence_town'] ?? null,
+                            'residence_address' => $ninData['residence_AdressLine1'] ?? null,
+                            'self_origin_state' => $ninData['self_origin_state'] ?? null,
+                            'trackingId' => $ninData['trackingId'] ?? null,
+                            'performed_by'    => $performedBy,
+                            'submission_date' => Carbon::now(),
+                            'status' => 'pending',
+                        ]);
+
+                        DB::commit();
+
+                        // Flash normalized verification data for Blade
+                        session()->flash('verification', [
+                            'data' => [
+                                'nin' => $ninData['nin'] ?? 'N/A',
+                                'firstName' => $ninData['firstname'] ?? 'N/A',
+                                'surname' => $ninData['surname'] ?? 'N/A',
+                                'middleName' => $ninData['middlename'] ?? 'N/A',
+                                'birthDate' => $ninData['birthdate'] ?? 'N/A',
+                                'gender' => $ninData['gender'] ?? 'N/A',
+                                'telephoneNo' => $ninData['telephoneno'] ?? 'N/A',
+                                'photo' => $ninData['photo'] ?? null,
+                            ]
+                        ]);
+
+                        // Prepare success message with warning if suspended
+                        $message = "NIN Demographic Verification successful. Reference: {$transactionRef}. Charged: NGN " . number_format($servicePrice, 2);
+                        
+                        if ($isSuspended) {
+                            $message .= " | WARNING: This NIN appears to be suspended or restricted. The verification service returned masked data (****). Please contact NIMC for assistance.";
+                        }
+
+                        return redirect()->route('user.nin.demo.index')->with([
+                            'status' => $isSuspended ? 'warning' : 'success',
+                            'message' => $message,
+                        ]);
+
+                    } catch (\Exception $dbEx) {
+                        DB::rollBack();
+                        throw $dbEx;
+                    }
+                }
+            }
+
+            // Handle different error scenarios
+            $errorMessage = $data['message'] ?? 'Verification failed. Please check your details and try again.';
+            throw new \Exception($errorMessage);
+
+        } catch (\Exception $e) {
+            // Auto refund
+            DB::beginTransaction();
+            try {
+                $refundRef = 'REF_' . $transactionRef;
+                $refundExists = Transaction::where('referenceId', $refundRef)->where('type', 'credit')->exists();
+                if (!$refundExists) {
+                    $lockedWallet = Wallet::where('user_id', $user->id)->lockForUpdate()->first();
+                    if ($lockedWallet) {
+                        $lockedWallet->increment('balance', $servicePrice);
+                        Transaction::create([
+                            'referenceId' => $refundRef,
+                            'user_id' => $user->id,
+                            'amount' => $servicePrice,
+                            'service_type'    => 'Refund',
+                            'service_description' => "Refund for failed NIN Demographic Verification: {$transactionRef}",
+                            'type' => 'credit',
+                            'status' => 'Approved',
+                            'performed_by' => 'System Auto-Refund',
+                        ]);
+                    }
+                }
+                DB::commit();
+            } catch (\Exception $refundEx) {
+                DB::rollBack();
+                Log::error('NIN Demo Verification Auto-Refund Error', ['error' => $refundEx->getMessage()]);
+            }
+
+            return back()->with([
+                'status' => 'error',
+                'message' => 'Verification failed: ' . $e->getMessage() . '. Wallet refunded.'
+            ])->withInput();
+        }
+    }
+
+    /**
+     * Process successful transaction (Charge + Verification Record)
+     */
+    private function processSuccessTransaction($wallet, $servicePrice, $user, $serviceField, $service, $apiResponse)
+    {
+        // Deprecated: logic moved to store()
+        return redirect()->route('user.nin.demo.index');
     }
 
     /**
@@ -382,36 +339,27 @@ class NINDemoVerificationController extends Controller
         }
 
         $servicePrice = $serviceField->getPriceForUserType($user->role);
-        $wallet = Wallet::where('user_id', $user->id)->firstOrFail();
+        $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->firstOrFail();
 
         if ($wallet->balance < $servicePrice) {
              throw new \Exception('Insufficient wallet balance.');
         }
         
-        DB::beginTransaction();
-        try {
-             $transactionRef = 'Slip-' . (time() % 1000000000) . '-' . mt_rand(100, 999);
-             $performedBy = $user->first_name . ' ' . $user->last_name;
- 
-             Transaction::create([
-                 'referenceId' => $transactionRef,
-                 'user_id' => $user->id,
-                 'amount' => $servicePrice,
-                 'service_type' => 'Slip Download',
-                 'service_description' => "Slip Download: {$serviceField->field_name}",
-                 'type' => 'debit',
-                 'status' => 'Approved',
-             ]);
- 
-             $wallet->decrement('balance', $servicePrice);
-             
-             DB::commit();
-             return true;
+        $transactionRef = 'Slip-' . (time() % 1000000000) . '-' . mt_rand(100, 999);
 
-        } catch (\Exception $e) {
-            DB::rollBack();
-            throw $e;
-        }
+        Transaction::create([
+             'referenceId' => $transactionRef,
+             'user_id' => $user->id,
+             'amount' => $servicePrice,
+             'service_type' => 'Slip Download',
+             'service_description' => "Slip Download: {$serviceField->field_name}",
+             'type' => 'debit',
+             'status' => 'Approved',
+        ]);
+
+        $wallet->decrement('balance', $servicePrice);
+        
+        return true;
     }
 
     public function freeSlip($nin_no)

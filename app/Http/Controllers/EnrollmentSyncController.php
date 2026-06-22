@@ -10,6 +10,10 @@ class EnrollmentSyncController extends Controller
 {
     public function updateStatus(Request $request)
     {
+        $expectedToken = config('services.sync.token');
+        if (!$expectedToken || $request->header('X-Sync-Token') !== $expectedToken) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
 
         // Validate incoming request
         $validated = $request->validate([

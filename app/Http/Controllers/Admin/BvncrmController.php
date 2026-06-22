@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\AgentService;
 use App\Services\CrmService;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Traits\Refundable;
 
 class BvncrmController extends Controller
 {
+    use Refundable;
     /**
      * Display a listing of all CRM submissions.
      */
@@ -98,7 +100,7 @@ class BvncrmController extends Controller
         ]);
 
         $submission = AgentService::findOrFail($id);
-        $submission->update($validated);
+        $this->updateStatusAndRefund($submission, $validated);
 
         return back()->with([
             'status' => 'success',

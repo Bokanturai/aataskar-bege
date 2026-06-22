@@ -116,27 +116,20 @@ class ManualSearchController extends Controller
             ])->withInput();
         }
 
-        // 3. Wallet Balance Check
-        $wallet = Wallet::where('user_id', $user->id)->first();
-
-        if (!$wallet) {
-            return back()->with([
-                'status' => 'error',
-                'message' => 'Wallet not found. Please contact support.',
-            ])->withInput();
-        }
-
-        if ($wallet->balance < $servicePrice) {
-            return back()->with([
-                'status' => 'error',
-                'message' => 'Insufficient wallet balance. You need NGN ' .
-                    number_format($servicePrice - $wallet->balance, 2) . ' more.',
-            ])->withInput();
-        }
-
         DB::beginTransaction();
 
         try {
+            // Lock wallet and check balance
+            $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->first();
+
+            if (!$wallet) {
+                throw new \Exception('Wallet not found. Please contact support.');
+            }
+
+            if ($wallet->balance < $servicePrice) {
+                throw new \Exception('Insufficient wallet balance. You need NGN ' . number_format($servicePrice - $wallet->balance, 2) . ' more.');
+            }
+
             $transactionRef = 'P1' . date('is') . strtoupper(Str::random(5));
             $performedBy = trim($user->first_name . ' ' . $user->last_name);
 
@@ -152,42 +145,9 @@ class ManualSearchController extends Controller
                 'payer_name' => $performedBy,
             ]);
 
-
-            // 4. API Submission to Arewa Smart
-            $apiToken = env('AREWA_API_TOKEN');
-            $baseUrl = env('AREWA_BASE_URL', 'https://api.arewasmart.com.ng/api/v1');
-            $apiUrl = rtrim($baseUrl, '/') . '/bvn/phone-search';
-
-            $payload = [
-                'field_code' => $serviceField->field_code,
-                'phone_number' => $validated['number'],
+            // Create submission record
+            $agentService = AgentService::create([
                 'reference' => $transactionRef,
-            ];
-
-            try {
-                Log::channel('crm')->info('Manual Search API Initiation', ['reference' => $transactionRef, 'payload' => $payload]);
-
-                $response = Http::withToken($apiToken)
-                    ->withoutVerifying()
-                    ->timeout(60)
-                    ->post($apiUrl, $payload);
-
-                $data = $response->json();
-
-                if (!$response->successful()) {
-                    Log::channel('crm')->error('Manual Search API Error', ['reference' => $transactionRef, 'response' => $data]);
-                    throw new \Exception('API Submission Failed: ' . ($data['message'] ?? 'Unknown Provider Error'));
-                }
-
-                Log::channel('crm')->info('Manual Search API Success', ['reference' => $transactionRef, 'response' => $data]);
-            } catch (\Exception $e) {
-                Log::channel('crm')->error('Manual Search Exception', ['reference' => $transactionRef, 'error' => $e->getMessage()]);
-                throw new \Exception('Connection Error: ' . $e->getMessage());
-            }
-
-            // Record submission
-            AgentService::create([
-                'reference' => $data['data']['reference'] ?? $transactionRef,
                 'user_id' => $user->id,
                 'service_field_id' => $serviceField->id,
                 'service_id' => $serviceField->service_id,
@@ -199,9 +159,9 @@ class ManualSearchController extends Controller
                 'transaction_id' => $transaction->id,
                 'performed_by' => $performedBy,
                 'submission_date' => now(),
-                'status' => 'processing', // Set to processing after successful API submission
+                'status' => 'pending',
                 'service_type' => 'bvn_search',
-                'comment' => $data['message'] ?? 'Submitted to Arewa API',
+                'comment' => 'Initiated search request',
             ]);
 
             // Deduct from wallet
@@ -209,21 +169,106 @@ class ManualSearchController extends Controller
 
             DB::commit();
 
-            return redirect()->route('user.phone.search.index')->with([
-                'status' => 'success',
-                'message' => 'BVN Search request submitted successfully. Ref: ' . ($data['data']['reference'] ?? $transactionRef) .
-                    '. Charged NGN ' . number_format($servicePrice, 2),
-            ]);
-
-
         } catch (\Exception $e) {
-            DB::rollBack();
-            report($e);
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+            Log::error('Manual Search Store Exception', [
+                'user_id' => $user->id,
+                'error'   => $e->getMessage()
+            ]);
 
             return back()->with([
                 'status' => 'error',
                 'message' => 'Submission failed: ' . $e->getMessage(),
             ])->withInput();
+        }
+
+        // 4. API Submission to Arewa Smart (OUTSIDE the transaction)
+        try {
+            $apiToken = env('AREWA_API_TOKEN');
+            $baseUrl = env('AREWA_BASE_URL', 'https://api.arewasmart.com.ng/api/v1');
+            $apiUrl = rtrim($baseUrl, '/') . '/bvn/phone-search';
+
+            $payload = [
+                'field_code' => $serviceField->field_code,
+                'phone_number' => $validated['number'],
+                'reference' => $transactionRef,
+            ];
+
+            Log::channel('crm')->info('Manual Search API Initiation', ['reference' => $transactionRef, 'payload' => $payload]);
+
+            $response = Http::withToken($apiToken)
+                ->timeout(60)
+                ->post($apiUrl, $payload);
+
+            $data = $response->json();
+
+            if (!$response->successful()) {
+                Log::channel('crm')->error('Manual Search API Error', ['reference' => $transactionRef, 'response' => $data]);
+                throw new \Exception('API Submission Failed: ' . ($data['message'] ?? 'Unknown Provider Error'));
+            }
+
+            Log::channel('crm')->info('Manual Search API Success', ['reference' => $transactionRef, 'response' => $data]);
+
+            // Update submission
+            $apiReference = $data['data']['reference'] ?? $transactionRef;
+
+            if ($apiReference !== $transactionRef) {
+                $transaction->update(['referenceId' => $apiReference]);
+                $agentService->update(['reference' => $apiReference]);
+            }
+
+            $agentService->update([
+                'status' => 'processing',
+                'comment' => $data['message'] ?? 'Submitted to Arewa API',
+            ]);
+
+            return redirect()->route('user.phone.search.index')->with([
+                'status' => 'success',
+                'message' => 'BVN Search request submitted successfully. Ref: ' . $apiReference . '. Charged NGN ' . number_format($servicePrice, 2),
+            ]);
+
+        } catch (\Exception $e) {
+            Log::channel('crm')->error('Manual Search Exception', ['reference' => $transactionRef, 'error' => $e->getMessage()]);
+
+            // Execute Refund
+            DB::beginTransaction();
+            try {
+                $lockedService = AgentService::where('id', $agentService->id)->lockForUpdate()->first();
+                if ($lockedService && !in_array($lockedService->status, ['failed', 'rejected'])) {
+                    $refundRef = 'REF_' . $lockedService->reference;
+                    $refundExists = Transaction::where('referenceId', $refundRef)->where('type', 'credit')->exists();
+                    if (!$refundExists) {
+                        $lockedWallet = Wallet::where('user_id', $user->id)->lockForUpdate()->first();
+                        if ($lockedWallet) {
+                            $lockedWallet->increment('balance', $servicePrice);
+                            Transaction::create([
+                                'referenceId' => $refundRef,
+                                'user_id' => $user->id,
+                                'amount' => $servicePrice,
+                                'service_description' => "Refund for failed BVN Search Request: {$lockedService->reference}",
+                                'type' => 'credit',
+                                'status' => 'Approved',
+                                'payer_name' => 'System Auto-Refund',
+                            ]);
+                        }
+                    }
+                    $lockedService->update([
+                        'status' => 'failed',
+                        'comment' => 'API Submission failed: ' . $e->getMessage() . ' (Refunded)'
+                    ]);
+                }
+                DB::commit();
+            } catch (\Exception $refundEx) {
+                DB::rollBack();
+                Log::error('Manual Search Auto-Refund Error', ['error' => $refundEx->getMessage()]);
+            }
+
+            return redirect()->route('user.phone.search.index')->with([
+                'status' => 'error',
+                'message' => 'Submission failed: ' . $e->getMessage() . '. Wallet refunded.',
+            ]);
         }
     }
 
@@ -239,7 +284,7 @@ class ManualSearchController extends Controller
                 ->firstOrFail();
 
             // Prevent checking status for completed/failed requests multiple times
-            if (in_array($enrollment->status, ['successful', 'failed'])) {
+            if (in_array($enrollment->status, ['successful', 'failed', 'rejected'])) {
                 return response()->json([
                     'success' => true,
                     'message' => 'This request is already ' . ucfirst($enrollment->status),

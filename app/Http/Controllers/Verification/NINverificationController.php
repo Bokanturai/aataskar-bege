@@ -130,22 +130,64 @@ class NINverificationController extends Controller
         // 3. Determine service price based on user role
         $servicePrice = $serviceField->getPriceForUserType($user->role);
 
-        // 4. Check wallet
-        $wallet = Wallet::where('user_id', $user->id)->firstOrFail();
+        DB::beginTransaction();
+        try {
+            // Lock wallet and check balance
+            $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->firstOrFail();
 
-        if ($wallet->balance < $servicePrice) {
+            if ($wallet->balance < $servicePrice) {
+                throw new \Exception('Insufficient wallet balance. You need NGN ' . number_format($servicePrice - $wallet->balance, 2) . ' more.');
+            }
+
+            $transactionRef = 'Ver-' . (time() % 1000000000) . '-' . mt_rand(100, 999);
+            $performedBy = $user->first_name . ' ' . $user->last_name;
+
+            // Create initial debit transaction
+            $transaction = Transaction::create([
+                'referenceId' => $transactionRef,
+                'user_id' => $user->id,
+                'amount' => $servicePrice,
+                'service_type'    => 'NIN Verification',
+                'service_description' => "NIN Verification - {$serviceField->field_name}",
+                'type' => 'debit',
+                'status' => 'Approved',
+                'performed_by'    => $performedBy,
+                'metadata' => [
+                    'service' => 'verification',
+                    'service_field' => $serviceField->field_name,
+                    'field_code' => $serviceField->field_code,
+                    'nin' => $request->number_nin,
+                    'user_role' => $user->role,
+                    'price_details' => [
+                        'base_price' => $serviceField->base_price,
+                        'user_price' => $servicePrice,
+                    ],
+                    'source' => 'API',
+                ],
+            ]);
+
+            // Deduct wallet balance
+            $wallet->decrement('balance', $servicePrice);
+
+            DB::commit();
+
+        } catch (\Exception $e) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
             return back()->with([
                 'status' => 'error',
-                'message' => 'Insufficient wallet balance. You need NGN ' . number_format($servicePrice - $wallet->balance, 2)
+                'message' => $e->getMessage()
             ]);
         }
 
+        // Call API outside transaction
         try {
             $apiKey = env('AREWA_API_TOKEN');
             $apiBaseUrl = env('AREWA_BASE_URL');
             $apiUrl = rtrim($apiBaseUrl, '/') . '/nin/verify';
 
-            $response = Http::timeout(30)->withoutVerifying()
+            $response = Http::timeout(30)
                 ->withToken($apiKey)
                 ->acceptJson()
                 ->post($apiUrl, [
@@ -164,15 +206,48 @@ class NINverificationController extends Controller
                 (isset($decodedData['status']) && $decodedData['status'] === 'success') && 
                 !empty($decodedData['data'])) {
                 
-                // Successful -> Proceed to Charge + Create Records
-                return $this->processSuccessTransaction(
-                    $wallet,
-                    $servicePrice,
-                    $user,
-                    $serviceField,
-                    $service,
-                    $decodedData
-                );
+                // Successful -> Create Verification Record and update transaction metadata
+                DB::beginTransaction();
+                try {
+                    $apiData = $decodedData['data'] ?? [];
+
+                    Verification::create([
+                        'user_id' => $user->id,
+                        'service_field_id' => $serviceField->id,
+                        'service_id' => $service->id,
+                        'transaction_id' => $transaction->id,
+                        'reference' => $transactionRef,
+                        'idno' => $apiData['nin'] ?? ($apiData['number_nin'] ?? ''),
+                        'number_nin' => $apiData['nin'] ?? ($apiData['number_nin'] ?? ''),
+                        'firstname' => $apiData['firstName'] ?? ($apiData['first_name'] ?? ''),
+                        'middlename' => $apiData['middleName'] ?? ($apiData['middle_name'] ?? ''),
+                        'surname' => $apiData['surname'] ?? ($apiData['last_name'] ?? ''),
+                        'birthdate' =>  $apiData['birthDate'] ?? ($apiData['dob'] ?? ($apiData['birthday'] ?? '')),
+                        'gender' => $apiData['gender'] ?? '',
+                        'telephoneno' => $apiData['telephoneNo'] ?? ($apiData['phone'] ?? ($apiData['phoneNumber'] ?? '')),
+                        'photo_path' => $apiData['photo'] ?? '',
+                        'performed_by'    => $performedBy,
+                        'submission_date' => Carbon::now()
+                    ]);
+
+                    $metadata = $transaction->metadata;
+                    $metadata['api_response'] = $decodedData;
+                    $transaction->update(['metadata' => $metadata]);
+
+                    DB::commit();
+
+                    // Flash normalized verification data for Blade
+                    session()->flash('verification', $decodedData);
+
+                    return redirect()->route('user.nin.verification.index')->with([
+                        'status' => 'success',
+                        'message' => "NIN Verification successful. Reference: {$transactionRef}. Charged: NGN " . number_format($servicePrice, 2),
+                    ]);
+
+                } catch (\Exception $dbEx) {
+                    DB::rollBack();
+                    throw $dbEx;
+                }
             }
 
             // All other responses are unsuccessful
@@ -184,16 +259,39 @@ class NINverificationController extends Controller
                 $errorMessage = "API Error (Code {$response->status()}): " . $errorMessage;
             }
 
-            return back()->with([
-                'status' => 'error',
-                'message' => $errorMessage
-            ]);
+            throw new \Exception($errorMessage);
 
         } catch (\Exception $e) {
-            Log::error('NIN Verification System Error', ['message' => $e->getMessage()]);
+            // Auto refund
+            DB::beginTransaction();
+            try {
+                $refundRef = 'REF_' . $transactionRef;
+                $refundExists = Transaction::where('referenceId', $refundRef)->where('type', 'credit')->exists();
+                if (!$refundExists) {
+                    $lockedWallet = Wallet::where('user_id', $user->id)->lockForUpdate()->first();
+                    if ($lockedWallet) {
+                        $lockedWallet->increment('balance', $servicePrice);
+                        Transaction::create([
+                            'referenceId' => $refundRef,
+                            'user_id' => $user->id,
+                            'amount' => $servicePrice,
+                            'service_type'    => 'Refund',
+                            'service_description' => "Refund for failed NIN Verification: {$transactionRef}",
+                            'type' => 'credit',
+                            'status' => 'Approved',
+                            'performed_by' => 'System Auto-Refund',
+                        ]);
+                    }
+                }
+                DB::commit();
+            } catch (\Exception $refundEx) {
+                DB::rollBack();
+                Log::error('NIN Verification Auto-Refund Error', ['error' => $refundEx->getMessage()]);
+            }
+
             return back()->with([
                 'status' => 'error',
-                'message' => 'System Error: ' . $e->getMessage()
+                'message' => 'Verification failed: ' . $e->getMessage() . '. Wallet refunded.'
             ]);
         }
     }
@@ -203,78 +301,10 @@ class NINverificationController extends Controller
      */
     private function processSuccessTransaction($wallet, $servicePrice, $user, $serviceField, $service, $ninData)
     {
-        DB::beginTransaction();
-
-        try {
-            $transactionRef = 'Ver-' . (time() % 1000000000) . '-' . mt_rand(100, 999);
-            $performedBy = $user->first_name . ' ' . $user->last_name;
-
-            $transaction = Transaction::create([
-                'referenceId' => $transactionRef,
-                'user_id' => $user->id,
-                'amount' => $servicePrice,
-                'service_type'    => 'NIN Verification',
-                'service_description' => "NIN Verification - {$serviceField->field_name}",
-                'type' => 'debit',
-                'status' => 'Approved',
-                'performed_by'    => $performedBy,
-                'metadata' => [
-                    'service' => 'verification',
-                    'service_field' => $serviceField->field_name,
-                    'field_code' => $serviceField->field_code,
-                    'nin' => $ninData['data']['nin'] ?? 'N/A', // Should exist on success
-                    'user_role' => $user->role,
-                    'price_details' => [
-                        'base_price' => $serviceField->base_price,
-                        'user_price' => $servicePrice,
-                    ],
-                    'source' => 'API',
-                    'api_response' => $ninData
-                ],
-            ]);
-
-            // Deduct wallet balance
-            $wallet->decrement('balance', $servicePrice);
-
-            $apiData = $ninData['data'] ?? [];
-
-            Verification::create([
-                'user_id' => $user->id,
-                'service_field_id' => $serviceField->id,
-                'service_id' => $service->id,
-                'transaction_id' => $transaction->id,
-                'reference' => $transactionRef,
-                'idno' => $apiData['nin'] ?? ($apiData['number_nin'] ?? ''),
-                'number_nin' => $apiData['nin'] ?? ($apiData['number_nin'] ?? ''),
-                'firstname' => $apiData['firstName'] ?? ($apiData['first_name'] ?? ''),
-                'middlename' => $apiData['middleName'] ?? ($apiData['middle_name'] ?? ''),
-                'surname' => $apiData['surname'] ?? ($apiData['last_name'] ?? ''),
-                'birthdate' =>  $apiData['birthDate'] ?? ($apiData['dob'] ?? ($apiData['birthday'] ?? '')),
-                'gender' => $apiData['gender'] ?? '',
-                'telephoneno' => $apiData['telephoneNo'] ?? ($apiData['phone'] ?? ($apiData['phoneNumber'] ?? '')),
-                'photo_path' => $apiData['photo'] ?? '',
-                'performed_by'    => $performedBy,
-                'submission_date' => Carbon::now()
-            ]);
-
-            DB::commit();
-
-            // Flash normalized verification data for Blade
-            session()->flash('verification', $ninData);
-
-            return redirect()->route('user.nin.verification.index')->with([
-                'status' => 'success',
-                'message' => "NIN Verification successful. Reference: {$transactionRef}. Charged: NGN " . number_format($servicePrice, 2),
-            ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            report($e);
-            return back()->with([
-                'status' => 'error',
-                'message' => 'Transaction failed: ' . $e->getMessage()
-            ]);
-        }
+        // Deprecated: logic moved to store()
+        return redirect()->route('user.nin.verification.index');
     }
+
     /**
      * Charge for Slip Download
      */
@@ -300,8 +330,8 @@ class NINverificationController extends Controller
         // 3. Determine service price based on user role
         $servicePrice = $serviceField->getPriceForUserType($user->role);
 
-        // 4. Check wallet
-        $wallet = Wallet::where('user_id', $user->id)->firstOrFail();
+        // 4. Lock Wallet and Check balance
+        $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->firstOrFail();
 
         if ($wallet->balance < $servicePrice) {
              throw new \Exception('Insufficient wallet balance.');

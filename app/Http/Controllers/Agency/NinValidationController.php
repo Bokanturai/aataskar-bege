@@ -14,9 +14,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use App\Http\Controllers\Traits\Refundable;
 
 class NinValidationController extends Controller
 {
+    use Refundable;
     public function index(Request $request)
     {
         $validationService = Service::where('name', 'Validation')->first();
@@ -81,47 +83,22 @@ class NinValidationController extends Controller
         
         $servicePrice = $serviceField->getPriceForUserType($role);
 
-        $wallet = Wallet::where('user_id', $user->id)->first();
-
-        if (!$wallet || $wallet->balance < $servicePrice) {
-            return back()->with('error', 'Insufficient wallet balance.');
-        }
-
-        $apiKey = env('AREWA_API_TOKEN');
-        $apiBaseUrl = env('AREWA_BASE_URL');
-        $apiUrl = rtrim($apiBaseUrl, '/') . '/nin/validation';
-
-        $payload = [
-            'description' => $request->description ?? "My Reference",
-            'nin' => $request->nin,
-            'field_code' => '015', // Code for Validation
-        ];
-
-        try {
-            $response = Http::withToken($apiKey)
-                ->acceptJson()
-                ->post($apiUrl, $payload);
-            
-            $data = $response->json();
-
-            if (!$response->successful() || (isset($data['status']) && $data['status'] == 'error')) {
-                return back()->with('error', 'API Submission Failed: ' . ($data['message'] ?? 'Unknown Error'));
-            }
-        } catch (\Exception $e) {
-            Log::error('API Error: ' . $e->getMessage());
-            return back()->with('error', 'Connection Error: Unable to reach service provider.');
-        }
-
         DB::beginTransaction();
-
         try {
+            // Lock wallet and check balance
+            $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->firstOrFail();
+
+            if ($wallet->balance < $servicePrice) {
+                throw new \Exception('Insufficient wallet balance.');
+            }
+
+            // Debit wallet
             $wallet->decrement('balance', $servicePrice);
 
             $transactionRef = 'TRX-' . strtoupper(Str::random(10));
             $performedBy = $user->first_name . ' ' . $user->last_name;
 
-            $cleanResponse = $this->cleanApiResponse($data);
-
+            // Create Transaction record (debit)
             $transaction = Transaction::create([
                 'referenceId' => $transactionRef,
                 'user_id' => $user->id,
@@ -138,9 +115,8 @@ class NinValidationController extends Controller
                 ],
             ]);
 
-            $status = $this->normalizeStatus($data['status'] ?? 'processing');
-
-            AgentService::create([
+            // Create AgentService record
+            $agentService = AgentService::create([
                 'reference' => 'REF-' . strtoupper(Str::random(10)),
                 'user_id' => $user->id,
                 'service_id' => $serviceField->service_id,
@@ -150,21 +126,63 @@ class NinValidationController extends Controller
                 'service_type' => 'NIN_VALIDATION',
                 'nin' => $request->nin,
                 'amount' => $servicePrice,
-                'status' => $status,
+                'status' => 'processing',
                 'submission_date' => now(),
                 'service_field_name' => $serviceField->field_name,
                 'description' => $request->description ?? $serviceField->field_name,
-                'comment' => $cleanResponse,
                 'performed_by' => $performedBy,
             ]);
 
             DB::commit();
-            return back()->with('success', 'NIN Validation Request submitted successfully. Status: ' . $status);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Transaction Error: ' . $e->getMessage());
-            return back()->with('error', 'System Error: Failed to record transaction. Please contact support.');
+            return back()->with('error', $e->getMessage());
+        }
+
+        // Call API outside transaction
+        try {
+            $apiKey = env('AREWA_API_TOKEN');
+            $apiBaseUrl = env('AREWA_BASE_URL');
+            $apiUrl = rtrim($apiBaseUrl, '/') . '/nin/validation';
+
+            $payload = [
+                'description' => $request->description ?? "My Reference",
+                'nin' => $request->nin,
+                'field_code' => '015', // Code for Validation
+            ];
+
+            $response = Http::withToken($apiKey)
+                ->acceptJson()
+                ->post($apiUrl, $payload);
+            
+            $data = $response->json();
+
+            if (!$response->successful() || (isset($data['status']) && $data['status'] == 'error')) {
+                throw new \Exception($data['message'] ?? 'API submission failed');
+            }
+
+            // API Success - normal update
+            $cleanResponse = $this->cleanApiResponse($data);
+            $status = $this->normalizeStatus($data['status'] ?? 'processing');
+
+            $agentService->update([
+                'status' => $status,
+                'comment' => $cleanResponse,
+            ]);
+
+            return back()->with('success', 'NIN Validation Request submitted successfully. Status: ' . $status);
+
+        } catch (\Exception $e) {
+            Log::error('NIN Validation Store API/System Error', ['error' => $e->getMessage()]);
+
+            // Auto refund using the trait
+            $this->updateStatusAndRefund($agentService, [
+                'status' => 'failed',
+                'comment' => 'API Error: ' . $e->getMessage(),
+            ]);
+
+            return back()->with('error', 'API Submission Failed: ' . $e->getMessage() . '. Wallet refunded.');
         }
     }
 
@@ -209,7 +227,7 @@ class NinValidationController extends Controller
                 $updateData['status'] = $this->normalizeStatus($apiResponse['response']);
             }
 
-            $agentService->update($updateData);
+            $this->updateStatusAndRefund($agentService, $updateData);
 
             if ($request->wantsJson() || $request->is('api/*')) {
                 return response()->json([
@@ -257,7 +275,7 @@ class NinValidationController extends Controller
                     $updateData['status'] = $this->normalizeStatus($data['status']);
                 }
 
-                $submission->update($updateData);
+                $this->updateStatusAndRefund($submission, $updateData);
             }
         }
 

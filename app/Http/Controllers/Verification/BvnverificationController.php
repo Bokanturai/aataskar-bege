@@ -97,85 +97,19 @@ class BvnverificationController extends Controller
         // 3. Determine service price based on user role
         $servicePrice = $serviceField->getPriceForUserType($user->role);
 
-        // 4. Check wallet
-        $wallet = Wallet::where('user_id', $user->id)->firstOrFail();
-
-        if ($wallet->balance < $servicePrice) {
-            return back()->with([
-                'status' => 'error',
-                'message' => 'Insufficient wallet balance. You need NGN ' . number_format($servicePrice - $wallet->balance, 2)
-            ]);
-        }
-
-        try {
-            $apiKey = env('AREWA_API_TOKEN');
-            $apiBaseUrl = env('AREWA_BASE_URL');
-            $apiUrl = rtrim($apiBaseUrl, '/') . '/bvn/verify';
-
-            $response = Http::withoutVerifying()
-                ->withToken($apiKey)
-                ->acceptJson()
-                ->post($apiUrl, [
-                    'bvn' => $request->bvn,
-                ]);
-
-            // Log the raw response for debugging
-            Log::info('BVN Verification Response', [
-                'status' => $response->status(),
-                'response' => $response->json()
-            ]);
-
-            $decodedData = $response->json();
-
-            if (!$response->successful() || (isset($decodedData['status']) && $decodedData['status'] === 'error')) {
-                return back()->with([
-                    'status' => 'error',
-                    'message' => 'API Error: ' . ($decodedData['message'] ?? 'Unknown error occurred.')
-                ]);
-            }
-
-            // Arewa Smart API usually returns success in 'status' field
-            $status = $decodedData['status'] ?? 'UNKNOWN';
-
-            if ($status === 'success') {
-                 // Successful -> Charge + Create Transaction + Create Verification
-                 return $this->processSuccessTransaction(
-                    $wallet,
-                    $servicePrice,
-                    $user,
-                    $serviceField,
-                    $service,
-                    $decodedData
-                );
-            } else {
-                // If status is not success but response was successful, treat as failed but record it if needed.
-                // Based on common patterns, Arewa API uses 'success'/'error'.
-                return back()->with([
-                    'status' => 'error',
-                    'message' => $decodedData['message'] ?? 'Verification failed.'
-                ]);
-            }
-
-        } catch (\Exception $e) {
-             return back()->with([
-                'status' => 'error',
-                'message' => 'System Error: ' . $e->getMessage()
-            ]);
-        }
-    }
-
-    /**
-     * Process successful transaction (Charge + Verification Record)
-     */
-    private function processSuccessTransaction($wallet, $servicePrice, $user, $serviceField, $service, $bvnData)
-    {
         DB::beginTransaction();
-
         try {
+            // Lock wallet and check balance
+            $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->firstOrFail();
+
+            if ($wallet->balance < $servicePrice) {
+                throw new \Exception('Insufficient wallet balance. You need NGN ' . number_format($servicePrice - $wallet->balance, 2) . ' more.');
+            }
 
             $transactionRef = 'Ver-' . (time() % 1000000000) . '-' . mt_rand(100, 999);
             $performedBy = $user->first_name . ' ' . $user->last_name;
 
+            // Create initial debit transaction
             $transaction = Transaction::create([
                 'referenceId' => $transactionRef,
                 'user_id' => $user->id,
@@ -189,69 +123,154 @@ class BvnverificationController extends Controller
                     'service' => 'verification',
                     'service_field' => $serviceField->field_name,
                     'field_code' => $serviceField->field_code,
-                    'bvn' => $bvnData['data']['bvn'] ?? 'N/A',
+                    'bvn' => $request->bvn,
                     'user_role' => $user->role,
                     'price_details' => [
                         'base_price' => $serviceField->base_price,
                         'user_price' => $servicePrice,
                     ],
                     'source' => 'API',
-                    'api_response' => $bvnData
                 ],
             ]);
 
             // Deduct wallet balance
             $wallet->decrement('balance', $servicePrice);
 
-            $apiData = $bvnData['data'] ?? [];
-
-            Verification::create([
-                'user_id' => $user->id,
-                'service_field_id' => $serviceField->id,
-                'service_id' => $service->id,
-                'transaction_id' => $transaction->id,
-                'reference' => $transactionRef,
-                'idno' => $apiData['bvn'] ?? '',
-                'firstname' => $apiData['firstName'] ?? ($apiData['first_name'] ?? ''),
-                'middlename' => $apiData['middleName'] ?? ($apiData['middle_name'] ?? ''),
-                'surname' => $apiData['lastName'] ?? ($apiData['last_name'] ?? ''),
-                'birthdate' =>  $apiData['birthday'] ?? ($apiData['dob'] ?? ''),
-                'gender' => $apiData['gender'] ?? '',
-                'maritalstatus' => $apiData['maritalStatus'] ?? '',
-                'email' => $apiData['email'] ?? '',
-                'telephoneno' => $apiData['phoneNumber'] ?? ($apiData['phone'] ?? ''),
-                'photo_path' => $apiData['photo'] ?? '',
-                'enrollment_bank' => $apiData['enrollmentBank'] ?? '',
-                'enrollment_branch' => $apiData['enrollmentBranch'] ?? '',
-                'registration_date' => $apiData['registrationDate'] ?? '',
-                'self_origin_state' => $apiData['stateOfOrigin'] ?? '',
-                'self_origin_lga' => $apiData['lgaOfOrigin'] ?? '',
-                'residence_state' => $apiData['stateOfResidence'] ?? '',
-                'residence_lga' => $apiData['lgaOfResidence'] ?? '',
-                'residence_address' => $apiData['residentialAddress'] ?? '',
-                'response_data' => $apiData,
-                'performed_by'    => $performedBy,
-                'submission_date' => Carbon::now()
-            ]);
-
             DB::commit();
 
-            // Flash normalized verification data for Blade
-            session()->flash('verification', $bvnData);
-
-            return redirect()->route('user.bvn-verification')->with([
-                'status' => 'success',
-                'message' => "BVN Verification successful. Reference: {$transactionRef}. Charged: NGN " . number_format($servicePrice, 2),
-            ]);
         } catch (\Exception $e) {
-            DB::rollBack();
-            report($e);
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+            return back()->with([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ]);
+        }
+
+        // Call API outside transaction
+        try {
+            $apiKey = env('AREWA_API_TOKEN');
+            $apiBaseUrl = env('AREWA_BASE_URL');
+            $apiUrl = rtrim($apiBaseUrl, '/') . '/bvn/verify';
+
+            $response = Http::withToken($apiKey)
+                ->acceptJson()
+                ->post($apiUrl, [
+                    'bvn' => $request->bvn,
+                ]);
+
+            Log::info('BVN Verification Response', [
+                'status' => $response->status(),
+                'response' => $response->json()
+            ]);
+
+            $decodedData = $response->json();
+
+            if (!$response->successful() || (isset($decodedData['status']) && $decodedData['status'] === 'error')) {
+                throw new \Exception($decodedData['message'] ?? 'Unknown error occurred.');
+            }
+
+            $status = $decodedData['status'] ?? 'UNKNOWN';
+
+            if ($status === 'success') {
+                // Successful -> Create Verification Record and update transaction metadata
+                DB::beginTransaction();
+                try {
+                    $apiData = $decodedData['data'] ?? [];
+
+                    Verification::create([
+                        'user_id' => $user->id,
+                        'service_field_id' => $serviceField->id,
+                        'service_id' => $service->id,
+                        'transaction_id' => $transaction->id,
+                        'reference' => $transactionRef,
+                        'idno' => $apiData['bvn'] ?? '',
+                        'firstname' => $apiData['firstName'] ?? ($apiData['first_name'] ?? ''),
+                        'middlename' => $apiData['middleName'] ?? ($apiData['middle_name'] ?? ''),
+                        'surname' => $apiData['lastName'] ?? ($apiData['last_name'] ?? ''),
+                        'birthdate' =>  $apiData['birthday'] ?? ($apiData['dob'] ?? ''),
+                        'gender' => $apiData['gender'] ?? '',
+                        'maritalstatus' => $apiData['maritalStatus'] ?? '',
+                        'email' => $apiData['email'] ?? '',
+                        'telephoneno' => $apiData['phoneNumber'] ?? ($apiData['phone'] ?? ''),
+                        'photo_path' => $apiData['photo'] ?? '',
+                        'enrollment_bank' => $apiData['enrollmentBank'] ?? '',
+                        'enrollment_branch' => $apiData['enrollmentBranch'] ?? '',
+                        'registration_date' => $apiData['registrationDate'] ?? '',
+                        'self_origin_state' => $apiData['stateOfOrigin'] ?? '',
+                        'self_origin_lga' => $apiData['lgaOfOrigin'] ?? '',
+                        'residence_state' => $apiData['stateOfResidence'] ?? '',
+                        'residence_lga' => $apiData['lgaOfResidence'] ?? '',
+                        'residence_address' => $apiData['residentialAddress'] ?? '',
+                        'response_data' => $apiData,
+                        'performed_by'    => $performedBy,
+                        'submission_date' => Carbon::now()
+                    ]);
+
+                    $metadata = $transaction->metadata;
+                    $metadata['api_response'] = $decodedData;
+                    $transaction->update(['metadata' => $metadata]);
+
+                    DB::commit();
+
+                    session()->flash('verification', $decodedData);
+
+                    return redirect()->route('user.bvn-verification')->with([
+                        'status' => 'success',
+                        'message' => "BVN Verification successful. Reference: {$transactionRef}. Charged: NGN " . number_format($servicePrice, 2),
+                    ]);
+
+                } catch (\Exception $dbEx) {
+                    DB::rollBack();
+                    throw $dbEx;
+                }
+            } else {
+                throw new \Exception($decodedData['message'] ?? 'Verification failed.');
+            }
+
+        } catch (\Exception $e) {
+            // Auto refund
+            DB::beginTransaction();
+            try {
+                $refundRef = 'REF_' . $transactionRef;
+                $refundExists = Transaction::where('referenceId', $refundRef)->where('type', 'credit')->exists();
+                if (!$refundExists) {
+                    $lockedWallet = Wallet::where('user_id', $user->id)->lockForUpdate()->first();
+                    if ($lockedWallet) {
+                        $lockedWallet->increment('balance', $servicePrice);
+                        Transaction::create([
+                            'referenceId' => $refundRef,
+                            'user_id' => $user->id,
+                            'amount' => $servicePrice,
+                            'service_type'    => 'Refund',
+                            'service_description' => "Refund for failed BVN Verification: {$transactionRef}",
+                            'type' => 'credit',
+                            'status' => 'Approved',
+                            'performed_by' => 'System Auto-Refund',
+                        ]);
+                    }
+                }
+                DB::commit();
+            } catch (\Exception $refundEx) {
+                DB::rollBack();
+                Log::error('BVN Verification Auto-Refund Error', ['error' => $refundEx->getMessage()]);
+            }
 
             return back()->with([
                 'status' => 'error',
-                'message' => 'Transaction failed: ' . $e->getMessage()
+                'message' => 'Verification failed: ' . $e->getMessage() . '. Wallet refunded.'
             ]);
         }
+    }
+
+    /**
+     * Process successful transaction (Charge + Verification Record)
+     */
+    private function processSuccessTransaction($wallet, $servicePrice, $user, $serviceField, $service, $bvnData)
+    {
+        // Deprecated: logic moved to store()
+        return redirect()->route('user.bvn-verification');
     }
 
 
@@ -280,38 +299,29 @@ class BvnverificationController extends Controller
         // 3. Determine service price based on user role
         $servicePrice = $serviceField->getPriceForUserType($user->role);
 
-        // 4. Check wallet
-        $wallet = Wallet::where('user_id', $user->id)->firstOrFail();
+        // 4. Lock Wallet and Check balance
+        $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->firstOrFail();
 
         if ($wallet->balance < $servicePrice) {
              throw new \Exception('Insufficient wallet balance.');
         }
         
-        DB::beginTransaction();
-        try {
-             $transactionRef = 'Slip-' . (time() % 1000000000) . '-' . mt_rand(100, 999);
-             $performedBy = $user->first_name . ' ' . $user->last_name;
- 
-             Transaction::create([
-                 'referenceId' => $transactionRef,
-                 'user_id' => $user->id,
-                 'amount' => $servicePrice,
-                 'service_type' => 'Slip Download',
-                 'service_description' => "Slip Download: {$serviceField->field_name}",
-                 'type' => 'debit',
-                 'status' => 'Approved',
-             ]);
- 
-             // Deduct wallet balance
-             $wallet->decrement('balance', $servicePrice);
-             
-             DB::commit();
-             return true;
+        $transactionRef = 'Slip-' . (time() % 1000000000) . '-' . mt_rand(100, 999);
 
-        } catch (\Exception $e) {
-            DB::rollBack();
-            throw $e;
-        }
+        Transaction::create([
+             'referenceId' => $transactionRef,
+             'user_id' => $user->id,
+             'amount' => $servicePrice,
+             'service_type' => 'Slip Download',
+             'service_description' => "Slip Download: {$serviceField->field_name}",
+             'type' => 'debit',
+             'status' => 'Approved',
+        ]);
+
+        // Deduct wallet balance
+        $wallet->decrement('balance', $servicePrice);
+        
+        return true;
     }
 
 

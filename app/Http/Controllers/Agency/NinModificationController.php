@@ -14,9 +14,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use App\Http\Controllers\Traits\Refundable;
 
 class NinModificationController extends Controller
 {
+    use Refundable;
     /**
      * Display NIN Modification dashboard.
      */
@@ -132,73 +134,20 @@ class NinModificationController extends Controller
             ])->withInput();
         }
 
-        // Wallet check
-        $wallet = Wallet::where('user_id', $user->id)->firstOrFail();
-        if ($wallet->balance < $servicePrice) {
-            return back()->with([
-                'status' => 'error',
-                'message' => 'Insufficient wallet balance. You need NGN ' .
-                    number_format($servicePrice - $wallet->balance, 2) . ' more.'
-            ])->withInput();
-        }
-
-        // API Call First
-        $apiKey = env('AREWA_API_TOKEN');
-        $apiBaseUrl = env('AREWA_BASE_URL');
-        $apiUrl = rtrim($apiBaseUrl, '/') . '/nin/modification';
-
-        // Prepare description payload for Arewa API as a string
-        if ($request->has('modification_data')) {
-            $modData = $request->input('modification_data');
-            if ($serviceField->field_code === '032') {
-                // For name correction, join names into a single string
-                $apiDescription = trim(($modData['first_name'] ?? '') . ' ' . ($modData['middle_name'] ?? '') . ' ' . ($modData['surname'] ?? ''));
-            } else {
-                // For others, just JSON encode or join values
-                $apiDescription = json_encode($modData);
-            }
-        } else {
-            $apiDescription = $request->input('description');
-        }
-
-        try {
-            $response = Http::withoutVerifying()
-                ->withToken($apiKey)
-                ->acceptJson()
-                ->post($apiUrl, [
-                    'field_code'  => $serviceField->field_code,
-                    'nin'         => $validated['nin'],
-                    'description' => (string) $apiDescription,
-                ]);
-
-            $apiData = $response->json();
-
-            if (!$response->successful() || (isset($apiData['success']) && $apiData['success'] === false)) {
-                Log::error('Arewa Smart API NIN Modification Failed', [
-                    'response' => $apiData,
-                    'payload' => [
-                        'field_code' => $serviceField->field_code,
-                        'nin' => $validated['nin']
-                    ]
-                ]);
-                return back()->with([
-                    'status' => 'error',
-                    'message' => 'API Submission Failed: ' . ($apiData['message'] ?? 'Unknown API error.')
-                ])->withInput();
-            }
-        } catch (\Exception $e) {
-            Log::error('Arewa Smart API Connection Error', ['error' => $e->getMessage()]);
-            return back()->with([
-                'status' => 'error',
-                'message' => 'Connection Error: Unable to reach service provider.'
-            ])->withInput();
-        }
-
         DB::beginTransaction();
-
         try {
-            // Generate Reference from API if available, otherwise use local
-            $transactionRef = $apiData['data']['reference'] ?? ('M1' . strtoupper(Str::random(10)));
+            // Lock Wallet
+            $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->firstOrFail();
+
+            if ($wallet->balance < $servicePrice) {
+                throw new \Exception('Insufficient wallet balance. You need NGN ' .
+                    number_format($servicePrice - $wallet->balance, 2) . ' more.');
+            }
+
+            // Debit Wallet
+            $wallet->decrement('balance', $servicePrice);
+
+            $transactionRef = 'M1' . strtoupper(Str::random(10));
             $performedBy = trim($user->first_name . ' ' . $user->last_name);
 
             // Create Transaction
@@ -220,12 +169,11 @@ class NinModificationController extends Controller
                         'base_price' => $serviceField->base_price,
                         'user_price' => $servicePrice
                     ],
-                    'api_response'     => $apiData
                 ],
             ]);
 
             // Create NIN Modification record
-            AgentService::create([
+            $agentService = AgentService::create([
                 'reference'          => $transactionRef,
                 'user_id'            => $user->id,
                 'service_field_id'   => $serviceField->id,
@@ -242,32 +190,93 @@ class NinModificationController extends Controller
                 'submission_date'    => now(),
                 'status'             => 'pending',
                 'service_type'       => 'nin_modification',
-                'comment'            => $apiData['message'] ?? null,
             ]);
 
-            // Debit Wallet
-            $wallet->decrement('balance', $servicePrice);
-
             DB::commit();
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ])->withInput();
+        }
+
+        // Call API outside transaction
+        try {
+            $apiKey = env('AREWA_API_TOKEN');
+            $apiBaseUrl = env('AREWA_BASE_URL');
+            $apiUrl = rtrim($apiBaseUrl, '/') . '/nin/modification';
+
+            // Prepare description payload for Arewa API as a string
+            if ($request->has('modification_data')) {
+                $modData = $request->input('modification_data');
+                if ($serviceField->field_code === '032') {
+                    // For name correction, join names into a single string
+                    $apiDescription = trim(($modData['first_name'] ?? '') . ' ' . ($modData['middle_name'] ?? '') . ' ' . ($modData['surname'] ?? ''));
+                } else {
+                    // For others, just JSON encode or join values
+                    $apiDescription = json_encode($modData);
+                }
+            } else {
+                $apiDescription = $request->input('description');
+            }
+
+            $response = Http::withToken($apiKey)
+                ->acceptJson()
+                ->post($apiUrl, [
+                    'field_code'  => $serviceField->field_code,
+                    'nin'         => $validated['nin'],
+                    'description' => (string) $apiDescription,
+                ]);
+
+            $apiData = $response->json();
+
+            if (!$response->successful() || (isset($apiData['success']) && $apiData['success'] === false)) {
+                Log::error('Arewa Smart API NIN Modification Failed', [
+                    'response' => $apiData,
+                    'payload' => [
+                        'field_code' => $serviceField->field_code,
+                        'nin' => $validated['nin']
+                    ]
+                ]);
+                throw new \Exception($apiData['message'] ?? 'Unknown API error.');
+            }
+
+            // Sync references and store metadata
+            $updates = [
+                'comment' => $apiData['message'] ?? null,
+            ];
+            if (isset($apiData['data']['reference'])) {
+                $updates['reference'] = $apiData['data']['reference'];
+                $transaction->update(['referenceId' => $apiData['data']['reference']]);
+            }
+
+            $metadata = $transaction->metadata;
+            $metadata['api_response'] = $apiData;
+            $transaction->update(['metadata' => $metadata]);
+
+            $agentService->update($updates);
 
             return redirect()->route('user.nin.modification.index')->with([
                 'status' => 'success',
                 'message' => 'NIN Modification Submitted Successfully. Reference: ' .
-                             $transactionRef . '. Charged: NGN ' .
+                             $agentService->reference . '. Charged: NGN ' .
                              number_format($servicePrice, 2),
             ]);
 
         } catch (\Exception $e) {
-            DB::rollBack();
+            Log::error('NIN Modification API Submission Error', ['error' => $e->getMessage()]);
 
-            Log::error('NIN Modification DB Save failed', [
-                'user_id' => $user->id,
-                'error'   => $e->getMessage(),
+            // Auto refund using trait
+            $this->updateStatusAndRefund($agentService, [
+                'status' => 'failed',
+                'comment' => 'API Error: ' . $e->getMessage(),
             ]);
 
             return back()->with([
                 'status' => 'error',
-                'message' => 'Internal Error: Failed to save record locally. Please contact support.',
+                'message' => 'API submission failed: ' . $e->getMessage() . '. Wallet refunded.'
             ])->withInput();
         }
     }
@@ -284,12 +293,10 @@ class NinModificationController extends Controller
         $apiUrl = rtrim($apiBaseUrl, '/') . '/nin/modification';
 
         try {
-            $response = Http::withoutVerifying()
-                ->withToken($apiKey)
+            $response = Http::withToken($apiKey)
                 ->acceptJson()
                 ->get($apiUrl, [
                     'reference' => $agentService->reference,
-                    // 'nin' => $agentService->nin, // Alternative
                 ]);
 
             $apiResponse = $response->json();
@@ -316,7 +323,7 @@ class NinModificationController extends Controller
                 }
 
                 if (!empty($updateData)) {
-                    $agentService->update($updateData);
+                    $this->updateStatusAndRefund($agentService, $updateData);
                 }
 
                 return back()->with('success', 'Status updated successfully. Current status: ' . ucfirst($agentService->status));

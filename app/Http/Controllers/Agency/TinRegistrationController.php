@@ -104,17 +104,6 @@ class TinRegistrationController extends Controller
             ]);
         }
 
-        // Wallet validation and charging
-        $wallet = Wallet::where('user_id', $user->id)->firstOrFail();
-
-        if ($wallet->balance < $servicePrice) {
-            return back()->with([
-                'status' => 'error',
-                'message' => 'You do not have sufficient fund in your wallet. You need NGN ' .
-                    number_format($servicePrice - $wallet->balance, 2) . ' more.'
-            ])->withInput();
-        }
-
         // Validate additional inputs based on type
         if ($request->type === 'individual') {
             $request->validate([
@@ -131,8 +120,15 @@ class TinRegistrationController extends Controller
         }
 
         DB::beginTransaction();
-
         try {
+            // Lock wallet and check balance
+            $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->firstOrFail();
+
+            if ($wallet->balance < $servicePrice) {
+                throw new \Exception('You do not have sufficient fund in your wallet. You need NGN ' .
+                    number_format($servicePrice - $wallet->balance, 2) . ' more.');
+            }
+
             // CHARGE USER BEFORE API CALL
             $transactionRef = 'TIN' . date('is') . strtoupper(Str::random(5));
             $performedBy = trim($user->first_name . ' ' . $user->last_name);
@@ -143,7 +139,6 @@ class TinRegistrationController extends Controller
                 'referenceId' => $transactionRef,
                 'user_id' => $user->id,
                 'amount' => $servicePrice,
-                'service_type'    => 'TIN verification',
                 'service_description' => "TIN Validation - {$serviceField->field_name}",
                 'type' => 'approved',
                 'status' => 'Pending',
@@ -184,13 +179,24 @@ class TinRegistrationController extends Controller
             // Deduct from wallet immediately
             $wallet->decrement('balance', $servicePrice);
 
+            DB::commit();
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ])->withInput();
+        }
+
+        // Call API outside transaction
+        try {
             // Prepare API payload
             $token = config('services.arewa.token');
             $url = config('services.arewa.base_url') . '/tin/verify';
             $payload = [];
 
             if ($request->type === 'individual') {
-                // Individual Payload (JTB)
                 $payload = [
                     'nin' => trim($request->nin),
                     'firstName' => trim($request->first_name),
@@ -198,7 +204,6 @@ class TinRegistrationController extends Controller
                     'dateOfBirth' => date('Y-m-d', strtotime($request->date_of_birth)), // YYYY-MM-DD
                 ];
             } else {
-                // Corporate Payload (CAC)
                 $payload = [
                     'rc' => trim($request->rc_number),
                     'type' => (string) $request->org_type, // CAC Type ID
@@ -230,84 +235,100 @@ class TinRegistrationController extends Controller
             if ($response->successful() && isset($data['status']) && $data['status'] === 'success') {
                 $responseData = $data['data'] ?? [];
 
-                // Update transaction and agent service to SUCCESS
-                $transaction->update([
-                    'status' => 'Approved',
-                    'metadata' => array_merge($transaction->metadata ?? [], [
-                        'api_response' => $responseData,
-                        'api_status' => 'success',
-                    ])
-                ]);
+                DB::beginTransaction();
+                try {
+                    // Update transaction and agent service to SUCCESS
+                    $transaction->update([
+                        'status' => 'Approved',
+                        'metadata' => array_merge($transaction->metadata ?? [], [
+                            'api_response' => $responseData,
+                            'api_status' => 'success',
+                        ])
+                    ]);
 
-                $agentService->update([
-                    'status' => 'successful',
-                    'modification_data' => array_merge($agentService->modification_data ?? [], [
-                        'api_response' => $responseData,
-                        'tin' => $responseData['tin'] ?? $responseData['taxIdentificationNumber'] ?? null,
-                    ])
-                ]);
+                    $agentService->update([
+                        'status' => 'successful',
+                        'modification_data' => array_merge($agentService->modification_data ?? [], [
+                            'api_response' => $responseData,
+                            'tin' => $responseData['tin'] ?? $responseData['taxIdentificationNumber'] ?? null,
+                        ])
+                    ]);
 
-                DB::commit();
+                    DB::commit();
 
-                // Store verification data in session for PDF download
-                session()->flash('verification', [
-                    'success' => true,
-                    'data' => $responseData,
-                    'type' => $request->type,
-                    'field_code' => $request->field_code,
-                    'input_data' => $request->all(),
-                    'transaction_ref' => $transactionRef,
-                    'tin_number' => $responseData['tin'] ?? $responseData['taxIdentificationNumber'] ?? null,
-                ]);
+                    // Store verification data in session for PDF download
+                    session()->flash('verification', [
+                        'success' => true,
+                        'data' => $responseData,
+                        'type' => $request->type,
+                        'field_code' => $request->field_code,
+                        'input_data' => $request->all(),
+                        'transaction_ref' => $transactionRef,
+                        'tin_number' => $responseData['tin'] ?? $responseData['taxIdentificationNumber'] ?? null,
+                    ]);
 
-                return redirect()->back()->with([
-                    'status' => 'success',
-                    'message' => 'TIN validation successful! You can now download your slip.',
-                ]);
+                    return redirect()->back()->with([
+                        'status' => 'success',
+                        'message' => 'TIN validation successful! You can now download your slip.',
+                    ]);
+
+                } catch (\Exception $dbEx) {
+                    DB::rollBack();
+                    throw $dbEx;
+                }
 
             } else {
-                // API failed - REFUND USER
-                $wallet->increment('balance', $servicePrice);
-
                 $errorMessage = $response->json('message') ?? 'API validation failed';
+                throw new \Exception($errorMessage);
+            }
+
+        } catch (\Exception $e) {
+            // Auto refund
+            DB::beginTransaction();
+            try {
+                $refundRef = 'REF_' . $transactionRef;
+                $refundExists = Transaction::where('referenceId', $refundRef)->where('type', 'credit')->exists();
+                if (!$refundExists) {
+                    $lockedWallet = Wallet::where('user_id', $user->id)->lockForUpdate()->first();
+                    if ($lockedWallet) {
+                        $lockedWallet->increment('balance', $servicePrice);
+                        Transaction::create([
+                            'referenceId' => $refundRef,
+                            'user_id' => $user->id,
+                            'amount' => $servicePrice,
+                            'service_type'    => 'Refund',
+                            'service_description' => "Refund for failed TIN verification: {$transactionRef}",
+                            'type' => 'credit',
+                            'status' => 'Approved',
+                            'performed_by' => 'System Auto-Refund',
+                        ]);
+                    }
+                }
 
                 $transaction->update([
                     'status' => 'Rejected',
                     'metadata' => array_merge($transaction->metadata ?? [], [
-                        'api_response' => $response->json(),
                         'api_status' => 'failed',
-                        'error' => $errorMessage,
+                        'error' => $e->getMessage(),
                     ])
                 ]);
 
                 $agentService->update([
                     'status' => 'failed',
                     'modification_data' => array_merge($agentService->modification_data ?? [], [
-                        'api_error' => $errorMessage,
+                        'api_error' => $e->getMessage(),
                     ])
                 ]);
 
                 DB::commit();
-
-                return back()->with([
-                    'status' => 'error',
-                    'message' => 'Validation failed: ' . $errorMessage . '. Your wallet has been refunded.',
-                ]);
+            } catch (\Exception $refundEx) {
+                DB::rollBack();
+                Log::error('TIN Validation Auto-Refund Error', ['error' => $refundEx->getMessage()]);
             }
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            // Refund is automatic via rollBack as the transaction was never committed
-            // Logging the error for debugging
-            Log::error('TIN Validation System Error', [
-                'user_id' => $user->id,
-                'error' => $e->getMessage()
-            ]);
 
             return back()->with([
                 'status' => 'error',
-                'message' => 'System error: ' . $e->getMessage() . '. Please try again or contact support.',
+                'message' => 'Validation failed: ' . $e->getMessage() . '. Your wallet has been refunded.',
             ])->withInput();
         }
     }
@@ -366,28 +387,24 @@ class TinRegistrationController extends Controller
             ]);
         }
 
-        // 3. Wallet Check & Charge
-        $wallet = Wallet::where('user_id', $user->id)->firstOrFail();
-
-        if ($wallet->balance < $price) {
-            return back()->with([
-                'status' => 'error',
-                'message' => 'Insufficient funds. You need NGN ' . number_format($price - $wallet->balance, 2) . ' more to download.'
-            ]);
-        }
-
         DB::beginTransaction();
-
         try {
+            // Lock Wallet
+            $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->firstOrFail();
+
+            if ($wallet->balance < $price) {
+                throw new \Exception('Insufficient funds. You need NGN ' . number_format($price - $wallet->balance, 2) . ' more to download.');
+            }
+
             $transactionRef = 'TINDL' . date('is') . strtoupper(Str::random(5));
             $performedBy = trim($user->first_name . ' ' . $user->last_name);
 
             // Create Debit Transaction
             Transaction::create([
-                'transaction_ref' => $transactionRef,
+                'referenceId' => $transactionRef,
                 'user_id' => $user->id,
                 'amount' => $price,
-                'description' => "TIN Download - {$type}",
+                'service_description' => "TIN Download - {$type}",
                 'type' => 'debit',
                 'status' => 'Approved', // Instant charge
                 'service_type' => 'TIN Download',
@@ -404,7 +421,18 @@ class TinRegistrationController extends Controller
 
             DB::commit();
 
-            // 4. Generate PDF
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('TIN Download Logic Error', ['error' => $e->getMessage()]);
+
+            return back()->with([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ]);
+        }
+
+        // 4. Generate PDF outside the transaction
+        try {
             if ($type === 'individual') {
                 // Use NIN_PDF_Repository for Individual Slip
                 $ninRepository = new \App\Repositories\NIN_PDF_Repository();
@@ -443,14 +471,11 @@ class TinRegistrationController extends Controller
 
                 return $pdf->download('TIN_Certificate_' . $reference . '.pdf');
             }
-
         } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('TIN Download Logic Error', ['error' => $e->getMessage()]);
-
+            Log::error('TIN Download PDF Generation Error', ['error' => $e->getMessage()]);
             return back()->with([
                 'status' => 'error',
-                'message' => 'System error during charge process. Please try again.'
+                'message' => 'Failed to generate PDF document: ' . $e->getMessage()
             ]);
         }
     }

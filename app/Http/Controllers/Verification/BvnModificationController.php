@@ -14,9 +14,11 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\Refundable;
 
 class BvnModificationController extends Controller
 {
+    use Refundable;
     public function index(Request $request)
     {
         $user = auth()->user();
@@ -99,10 +101,6 @@ class BvnModificationController extends Controller
 
         $validated = $request->validate($rules);
 
-        $wallet = Wallet::where('user_id', $user->id)->firstOrFail();
-
-       
-
         $role = $user->role ?? 'user';
         $service = Services1::findOrFail($validated['enrolment_bank']);
         $serviceField = ServiceField::findOrFail($validated['service_field']);
@@ -119,68 +117,31 @@ class BvnModificationController extends Controller
 
         $totalAmount = $modificationFee + ($chargeAffidavit ? $affidavitFee : 0);
 
-        if ($wallet->balance < $totalAmount) {
-            $msg = "Insufficient wallet balance. Required: NGN " . number_format($totalAmount, 2);
-            return redirect()->route('user.modification')->withErrors(['wallet' => $msg])->withInput();
+        // Handle affidavit upload (before transaction)
+        $fileName = null;
+        $fileUrl = null;
+        if ($affidavitUploaded) {
+            $file = $request->file('affidavit_file');
+            $fileName = 'affidavit_' . Str::slug($user->email) . '_' . time() . '.' . $file->getClientOriginalExtension();
+            
+            // Store in storage/app/public/uploads/affidavits
+            $path = $file->storeAs('uploads/affidavits', $fileName, 'public');
+            $fileUrl = Storage::disk('public')->url($path);
         }
 
         DB::beginTransaction();
-
         try {
-            // Handle affidavit upload
-            $fileName = null;
-            $fileUrl = null;
-            
-            if ($affidavitUploaded) {
-                $file = $request->file('affidavit_file');
-                $fileName = 'affidavit_' . Str::slug($user->email) . '_' . time() . '.' . $file->getClientOriginalExtension();
-                
-                // Store in storage/app/public/uploads/affidavits
-                $path = $file->storeAs('uploads/affidavits', $fileName, 'public');
-                $fileUrl = Storage::disk('public')->url($path);
+            // Lock wallet and check balance
+            $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->firstOrFail();
+
+            if ($wallet->balance < $totalAmount) {
+                throw new \Exception("Insufficient wallet balance. Required: NGN " . number_format($totalAmount, 2));
             }
 
             // Debit wallet
             $wallet->decrement('balance', $totalAmount);
 
-            // API Call to Arewa Smart
-            $apiKey = env('AREWA_API_TOKEN');
-            $apiBaseUrl = env('AREWA_BASE_URL');
-            $apiUrl = rtrim($apiBaseUrl, '/') . '/bvn/modification';
-
-            // Prepare description payload as a string
-            $description = $validated['description'] ?? '';
-
-            try {
-                $response = Http::withoutVerifying()
-                    ->withToken($apiKey)
-                    ->acceptJson()
-                    ->post($apiUrl, [
-                        'field_code'  => $serviceField->field_code,
-                        'bvn'         => $validated['bvn'],
-                        'nin'         => $validated['nin'],
-                        'description' => $description, // Sent as a string
-                    ]);
-
-                $apiData = $response->json();
-
-                if (!$response->successful() || (isset($apiData['success']) && $apiData['success'] === false)) {
-                    Log::error('Arewa Smart API BVN Modification Failed', [
-                        'response' => $apiData,
-                        'payload' => [
-                            'field_code' => $serviceField->field_code,
-                            'nin' => $validated['nin']
-                        ]
-                    ]);
-                    // If API fails, we could potentially refund, but usually we throw and let the catch handle it
-                    throw new \Exception('API Submission Failed: ' . ($apiData['message'] ?? 'Unknown API error.'));
-                }
-            } catch (\Exception $e) {
-                Log::error('Arewa Smart API Connection Error', ['error' => $e->getMessage()]);
-                throw $e;
-            }
-
-            $transactionRef = $apiData['data']['reference'] ?? ('M1' . date('is') . strtoupper(Str::random(5)));
+            $transactionRef = 'M1' . date('is') . strtoupper(Str::random(5));
             $performedBy = trim("{$user->first_name} {$user->last_name}");
 
             $transaction = Transaction::create([
@@ -202,12 +163,11 @@ class BvnModificationController extends Controller
                         'modification_fee' => $modificationFee,
                         'affidavit_fee' => $chargeAffidavit ? $affidavitFee : 0,
                     ],
-                    'api_response' => $apiData
                 ],
             ]);
 
             // Store submission
-            AgentService::create([
+            $agentService = AgentService::create([
                 'reference' => $transactionRef,
                 'user_id' => $user->id,
                 'service_id' => $serviceField->service_id,
@@ -218,8 +178,7 @@ class BvnModificationController extends Controller
                 'bank' => $service->name,
                 'bvn' => $validated['bvn'],
                 'nin' => $validated['nin'],
-                'description' => $description,
-
+                'description' => $validated['description'] ?? '',
                 'amount' => $totalAmount,
                 'affidavit_file' => $fileName,
                 'affidavit' => $validated['affidavit'],
@@ -228,27 +187,80 @@ class BvnModificationController extends Controller
                 'submission_date' => now(),
                 'status' => 'pending',
                 'service_type' => 'bvn_modification',
-                'comment' => $apiData['message'] ?? null,
                 'performed_by' => $performedBy,
             ]);
 
             DB::commit();
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            // Clean up uploaded file if exists
+            if ($affidavitUploaded && isset($fileName)) {
+                Storage::disk('public')->delete('uploads/affidavits/' . $fileName);
+            }
+            return redirect()->route('user.modification')->withErrors(['wallet' => $e->getMessage()])->withInput();
+        }
+
+        // API Call to Arewa Smart outside transaction
+        try {
+            $apiKey = env('AREWA_API_TOKEN');
+            $apiBaseUrl = env('AREWA_BASE_URL');
+            $apiUrl = rtrim($apiBaseUrl, '/') . '/bvn/modification';
+
+            $response = Http::withToken($apiKey)
+                ->acceptJson()
+                ->post($apiUrl, [
+                    'field_code'  => $serviceField->field_code,
+                    'bvn'         => $validated['bvn'],
+                    'nin'         => $validated['nin'],
+                    'description' => $validated['description'] ?? '',
+                ]);
+
+            $apiData = $response->json();
+
+            if (!$response->successful() || (isset($apiData['success']) && $apiData['success'] === false)) {
+                Log::error('Arewa Smart API BVN Modification Failed', [
+                    'response' => $apiData,
+                    'payload' => [
+                        'field_code' => $serviceField->field_code,
+                        'nin' => $validated['nin']
+                    ]
+                ]);
+                throw new \Exception('API Submission Failed: ' . ($apiData['message'] ?? 'Unknown API error.'));
+            }
+
+            // Sync references and store metadata
+            $updates = [
+                'comment' => $apiData['message'] ?? null,
+            ];
+            if (isset($apiData['data']['reference'])) {
+                $updates['reference'] = $apiData['data']['reference'];
+                $transaction->update(['referenceId' => $apiData['data']['reference']]);
+            }
+
+            $metadata = $transaction->metadata;
+            $metadata['api_response'] = $apiData;
+            $transaction->update(['metadata' => $metadata]);
+
+            $agentService->update($updates);
 
             $msg = "BVN Modification Submitted Successfully. Charged: NGN " . number_format($totalAmount, 2);
             return redirect()->route('user.modification')->with([
                 'status' => 'success',
                 'message' => $msg,
             ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
 
-            // Clean up uploaded file if exists
-            if ($affidavitUploaded && isset($fileName)) {
-                Storage::disk('public')->delete('uploads/affidavits/' . $fileName);
-            }
+        } catch (\Exception $e) {
+            Log::error('BVN Modification Submission API Error', ['error' => $e->getMessage()]);
+
+            // Secure refund using trait
+            $this->updateStatusAndRefund($agentService, [
+                'status' => 'failed',
+                'comment' => 'Submission Failed: ' . $e->getMessage(),
+            ]);
 
             return redirect()->route('user.modification')->withErrors([
-                'error' => 'Something went wrong: ' . $e->getMessage(),
+                'error' => 'API submission failed: ' . $e->getMessage() . '. Wallet refunded.',
             ])->withInput();
         }
     }
@@ -297,12 +309,10 @@ class BvnModificationController extends Controller
         $apiUrl = rtrim($apiBaseUrl, '/') . '/bvn/modification';
 
         try {
-            $response = Http::withoutVerifying()
-                ->withToken($apiKey)
+            $response = Http::withToken($apiKey)
                 ->acceptJson()
                 ->get($apiUrl, [
                     'reference' => $agentService->reference,
-                    // 'bvn' => $agentService->bvn, // Alternative
                 ]);
 
             $apiResponse = $response->json();
@@ -339,7 +349,7 @@ class BvnModificationController extends Controller
                 }
 
                 if (!empty($updateData)) {
-                    $agentService->update($updateData);
+                    $this->updateStatusAndRefund($agentService, $updateData);
                 }
 
                 return back()->with('success', 'Status updated successfully. Current status: ' . ucfirst($agentService->status));

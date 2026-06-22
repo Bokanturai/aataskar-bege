@@ -13,9 +13,11 @@ use App\Models\ServiceField;
 use App\Models\Transaction;
 use App\Models\Wallet;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\Refundable;
 
 class BvnServicesController extends Controller
 {
+    use Refundable;
     /**
      * Display the service form and submission history for CRM.
      */
@@ -136,7 +138,7 @@ class BvnServicesController extends Controller
             ]);
 
             // 6. Create AgentService Record
-            AgentService::create([
+            $agentService = AgentService::create([
                 'reference'       => $reference,
                 'user_id'         => $user->id,
                 'service_id'      => $serviceField->service_id,
@@ -157,7 +159,25 @@ class BvnServicesController extends Controller
             // 7. Deduct Wallet Balance
             $wallet->decrement('balance', $servicePrice);
 
-            // 8. Call API
+            DB::commit();
+
+        } catch (\Exception $e) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+            Log::error('BVN CRM Store Exception', [
+                'user_id' => $user->id,
+                'error'   => $e->getMessage()
+            ]);
+
+            return back()->with([
+                'status'  => 'error',
+                'message' => $e->getMessage(),
+            ])->withInput();
+        }
+
+        // 8. Call API
+        try {
             $apiKey = env('AREWA_API_TOKEN');
             $apiBaseUrl = env('AREWA_BASE_URL');
             $apiUrl = rtrim($apiBaseUrl, '/') . '/bvn/crm';
@@ -172,7 +192,7 @@ class BvnServicesController extends Controller
 
             $decodedData = $response->json();
 
-            // 9. Handle API Failure (Rollback)
+            // 9. Handle API Failure
             if (!$response->successful() || (isset($decodedData['success']) && $decodedData['success'] === false) || (isset($decodedData['status']) && $decodedData['status'] === 'error')) {
                 Log::error('BVN CRM API Failure', [
                     'reference' => $reference,
@@ -182,23 +202,18 @@ class BvnServicesController extends Controller
                 throw new \Exception('Transaction failed: ' . ($decodedData['message'] ?? 'Could not complete API request.'));
             }
 
-            // 10. Update records with API Result and Commit
+            // 10. Update records with API Result
             $apiReference = $decodedData['data']['reference'] ?? $reference;
             
             // If API returned a different reference, update the records
             if ($apiReference !== $reference) {
                 $transaction->update(['transaction_ref' => $apiReference]);
-                $agentService = AgentService::where('reference', $reference)->first();
-                if ($agentService) {
-                    $agentService->update(['reference' => $apiReference]);
-                }
+                $agentService->update(['reference' => $apiReference]);
             }
 
             $transactionMetadata = $transaction->metadata;
             $transactionMetadata['api_response'] = $decodedData;
             $transaction->update(['metadata' => $transactionMetadata]);
-
-            DB::commit();
 
             return redirect()->route('user.bvn-crm')->with([
                 'status'  => 'success',
@@ -206,15 +221,45 @@ class BvnServicesController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            if (DB::transactionLevel() > 0) {
-                DB::rollBack();
-            }
             Log::error('BVN CRM Store Exception', [
                 'user_id' => $user->id,
                 'error'   => $e->getMessage()
             ]);
 
-            return back()->with([
+            // Execute Refund
+            DB::beginTransaction();
+            try {
+                $lockedService = AgentService::where('id', $agentService->id)->lockForUpdate()->first();
+                if ($lockedService && !in_array($lockedService->status, ['failed', 'rejected'])) {
+                    $refundRef = 'REF_' . $lockedService->reference;
+                    $refundExists = Transaction::where('transaction_ref', $refundRef)->where('type', 'credit')->exists();
+                    if (!$refundExists) {
+                        $lockedWallet = Wallet::where('user_id', $user->id)->lockForUpdate()->first();
+                        if ($lockedWallet) {
+                            $lockedWallet->increment('balance', $servicePrice);
+                            Transaction::create([
+                                'transaction_ref' => $refundRef,
+                                'user_id'         => $user->id,
+                                'amount'          => $servicePrice,
+                                'performed_by'    => 'System Auto-Refund',
+                                'description'     => "Refund for failed {$serviceName} Request: {$lockedService->reference}",
+                                'type'            => 'credit',
+                                'status'          => 'approved',
+                            ]);
+                        }
+                    }
+                    $lockedService->update([
+                        'status' => 'failed',
+                        'comment' => 'API Submission failed: ' . $e->getMessage() . ' (Refunded)'
+                    ]);
+                }
+                DB::commit();
+            } catch (\Exception $refundEx) {
+                DB::rollBack();
+                Log::error('BVN CRM Auto-Refund Error', ['error' => $refundEx->getMessage()]);
+            }
+
+            return redirect()->route('user.bvn-crm')->with([
                 'status'  => 'error',
                 'message' => $e->getMessage(),
             ])->withInput();
@@ -278,7 +323,7 @@ class BvnServicesController extends Controller
                 }
 
                 if (!empty($updateData)) {
-                    $submission->update($updateData);
+                    $this->updateStatusAndRefund($submission, $updateData);
                 }
 
                 return back()->with([

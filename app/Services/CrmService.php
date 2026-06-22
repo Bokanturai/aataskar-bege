@@ -70,30 +70,49 @@ class CrmService
                     }
 
                     // Handle Rejection and Refund
-                    if ($newStatus === 'failed' && $submission->status !== 'failed') {
+                    if ($newStatus === 'failed') {
                         DB::transaction(function () use ($submission, &$updateData) {
-                            // Securely lock the wallet for update
-                            $wallet = Wallet::where('user_id', $submission->user_id)->lockForUpdate()->first();
-                            if ($wallet) {
-                                $wallet->increment('balance', $submission->amount);
-
-                                Transaction::create([
-                                    'referenceId' => 'REF_' . $submission->reference,
-                                    'user_id' => $submission->user_id,
-                                    'amount' => $submission->amount,
-                                    'service_type' => 'Refund',
-                                    'service_description' => "Refund for failed {$submission->service_name} Request: {$submission->reference}",
-                                    'type' => 'credit',
-                                    'status' => 'Approved',
-                                    'payer_name' => 'System Auto-Refund',
-                                ]);
+                            // 1. Lock the submission record for update to prevent concurrent updates
+                            $lockedSubmission = AgentService::where('id', $submission->id)->lockForUpdate()->first();
+                            
+                            if ($lockedSubmission && !in_array($lockedSubmission->status, ['failed', 'rejected'])) {
+                                // 2. Double check refund transaction existence
+                                $refundRef = 'REF_' . $lockedSubmission->reference;
+                                $refundExists = Transaction::where('referenceId', $refundRef)
+                                    ->where('type', 'credit')
+                                    ->exists();
                                 
-                                $updateData['comment'] = ($updateData['comment'] ?? 'Failed submission') . ' (Refunded)';
+                                if (!$refundExists) {
+                                    $wallet = Wallet::where('user_id', $lockedSubmission->user_id)->lockForUpdate()->first();
+                                    if ($wallet) {
+                                        $wallet->increment('balance', $lockedSubmission->amount);
+
+                                        Transaction::create([
+                                            'referenceId' => $refundRef,
+                                            'user_id' => $lockedSubmission->user_id,
+                                            'amount' => $lockedSubmission->amount,
+                                            'service_type' => 'Refund',
+                                            'service_description' => "Refund for failed {$lockedSubmission->service_name} Request: {$lockedSubmission->reference}",
+                                            'type' => 'credit',
+                                            'status' => 'Approved',
+                                            'payer_name' => 'System Auto-Refund',
+                                        ]);
+                                        
+                                        $updateData['comment'] = ($updateData['comment'] ?? 'Failed submission') . ' (Refunded)';
+                                    }
+                                }
+                                $lockedSubmission->update($updateData);
+                            } else {
+                                // Submission is already failed or rejected in the database, just update other fields (e.g. comment) but don't refund
+                                $cleanUpdateData = array_diff_key($updateData, ['status' => '']);
+                                if (!empty($cleanUpdateData) && $lockedSubmission) {
+                                    $lockedSubmission->update($cleanUpdateData);
+                                }
                             }
                         });
+                    } else {
+                        $submission->update($updateData);
                     }
-
-                    $submission->update($updateData);
 
                     return [
                         'status' => 'success',

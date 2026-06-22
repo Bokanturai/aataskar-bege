@@ -40,4 +40,8 @@ return [
         'token' => env('AREWA_API_TOKEN'),
     ],
 
+    'sync' => [
+        'token' => env('STATUS_SYNC_TOKEN'),
+    ],
+
 ];

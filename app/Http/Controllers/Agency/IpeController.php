@@ -14,9 +14,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use App\Http\Controllers\Traits\Refundable;
 
 class IpeController extends Controller
 {
+    use Refundable;
     public function index(Request $request)
     {
         $ipeService = Service::where('name', 'IPE')->first();
@@ -86,47 +88,22 @@ class IpeController extends Controller
         
         $servicePrice = $serviceField->getPriceForUserType($role);
 
-        $wallet = Wallet::where('user_id', $user->id)->first();
-
-        if (!$wallet || $wallet->balance < $servicePrice) {
-            return back()->with('error', 'Insufficient wallet balance.');
-        }
-
-        $apiKey = env('AREWA_API_TOKEN');
-        $apiBaseUrl = env('AREWA_BASE_URL');
-        $apiUrl = rtrim($apiBaseUrl, '/') . '/nin/ipe';
-
-        $payload = [
-            'field_code' => $serviceField->field_code ?? '002',
-            'tracking_id' => $request->tracking_id,
-            'description' => $request->description ?? 'My Reference',
-        ];
-
-        try {
-            $response = Http::withToken($apiKey)
-                ->acceptJson()
-                ->post($apiUrl, $payload);
-            
-            $data = $response->json();
-
-            if (!$response->successful() || !($data['success'] ?? false)) {
-                return back()->with('error', 'API Submission Failed: ' . ($data['message'] ?? 'Unknown Error'));
-            }
-        } catch (\Exception $e) {
-            Log::error('IPE API Error: ' . $e->getMessage());
-            return back()->with('error', 'Connection Error: Unable to reach service provider.');
-        }
-
         DB::beginTransaction();
-
         try {
+            // Lock Wallet
+            $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->firstOrFail();
+
+            if ($wallet->balance < $servicePrice) {
+                throw new \Exception('Insufficient wallet balance.');
+            }
+
+            // Debit Wallet
             $wallet->decrement('balance', $servicePrice);
 
             $transactionRef = 'TRX-' . strtoupper(Str::random(10));
             $performedBy = $user->first_name . ' ' . $user->last_name;
 
-            $cleanResponse = $this->cleanApiResponse($data);
-
+            // Create Transaction record (debit)
             $transaction = Transaction::create([
                 'referenceId' => $transactionRef,
                 'user_id' => $user->id,
@@ -143,10 +120,9 @@ class IpeController extends Controller
                 ],
             ]);
 
-            $status = $this->normalizeStatus($data['data']['status'] ?? $data['status'] ?? 'processing');
-
-            AgentService::create([
-                'reference' => $data['data']['reference'] ?? 'REF-' . strtoupper(Str::random(10)),
+            // Create AgentService record
+            $agentService = AgentService::create([
+                'reference' => 'REF-' . strtoupper(Str::random(10)),
                 'user_id' => $user->id,
                 'service_id' => $serviceField->service_id,
                 'service_field_id' => $serviceField->id,
@@ -155,21 +131,69 @@ class IpeController extends Controller
                 'service_type' => 'IPE',
                 'tracking_id' => $request->tracking_id,
                 'amount' => $servicePrice,
-                'status' => $status,
+                'status' => 'processing',
                 'submission_date' => now(),
                 'service_field_name' => $serviceField->field_name,
                 'description' => $request->description ?? $serviceField->field_name,
-                'comment' => $cleanResponse,
                 'performed_by' => $performedBy,
             ]);
 
             DB::commit();
-            return back()->with('success', 'IPE request submitted successfully. Status: ' . $status);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('IPE Transaction Error: ' . $e->getMessage());
-            return back()->with('error', 'System Error: Failed to record transaction. Please contact support.');
+            return back()->with('error', $e->getMessage());
+        }
+
+        // Call API outside transaction
+        try {
+            $apiKey = env('AREWA_API_TOKEN');
+            $apiBaseUrl = env('AREWA_BASE_URL');
+            $apiUrl = rtrim($apiBaseUrl, '/') . '/nin/ipe';
+
+            $payload = [
+                'field_code' => $serviceField->field_code ?? '002',
+                'tracking_id' => $request->tracking_id,
+                'description' => $request->description ?? 'My Reference',
+            ];
+
+            $response = Http::withToken($apiKey)
+                ->acceptJson()
+                ->post($apiUrl, $payload);
+            
+            $data = $response->json();
+
+            if (!$response->successful() || !($data['success'] ?? false)) {
+                throw new \Exception($data['message'] ?? 'API submission failed');
+            }
+
+            // Success API update
+            $cleanResponse = $this->cleanApiResponse($data);
+            $status = $this->normalizeStatus($data['data']['status'] ?? $data['status'] ?? 'processing');
+
+            $agentService->update([
+                'reference' => $data['data']['reference'] ?? $agentService->reference,
+                'status' => $status,
+                'comment' => $cleanResponse,
+            ]);
+
+            // Update Transaction reference as well if needed
+            if (isset($data['data']['reference'])) {
+                $transaction->update(['referenceId' => $data['data']['reference']]);
+            }
+
+            return back()->with('success', 'IPE request submitted successfully. Status: ' . $status);
+
+        } catch (\Exception $e) {
+            Log::error('IPE API Submission / System Error', ['error' => $e->getMessage()]);
+
+            // Secure refund using the trait
+            $this->updateStatusAndRefund($agentService, [
+                'status' => 'failed',
+                'comment' => 'API Error: ' . $e->getMessage(),
+            ]);
+
+            return back()->with('error', 'API Submission Failed: ' . $e->getMessage() . '. Wallet refunded.');
         }
     }
 
@@ -237,7 +261,7 @@ class IpeController extends Controller
                 $updateData['details'] = $details;
             }
 
-            $agentService->update($updateData);
+            $this->updateStatusAndRefund($agentService, $updateData);
 
             if ($request->ajax()) {
                 return response()->json([
@@ -354,7 +378,7 @@ class IpeController extends Controller
                             }
                         }
                         
-                        $submission->update($updateData);
+                        $this->updateStatusAndRefund($submission, $updateData);
                         
                         $checked++;
                         $updated[] = $submission->tracking_id;

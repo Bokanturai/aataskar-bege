@@ -141,7 +141,7 @@ class BvncrmController extends Controller
             ]);
 
             // 6. Create AgentService Record
-            AgentService::create([
+            $agentService = AgentService::create([
                 'reference'       => $reference,
                 'user_id'         => $user->id,
                 'service_id'      => $serviceField->service_id,
@@ -169,12 +169,29 @@ class BvncrmController extends Controller
                 'type'      => $serviceField->field_code
             ]);
 
-            // 8. Call API
+            DB::commit();
+
+        } catch (\Exception $e) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
+            Log::error('BVN CRM Store Exception', [
+                'user_id' => $user->id,
+                'error'   => $e->getMessage()
+            ]);
+
+            return back()->with([
+                'status'  => 'error',
+                'message' => $e->getMessage(),
+            ])->withInput();
+        }
+
+        // 8. Call API (OUTSIDE the transaction)
+        try {
             $apiToken = env('AREWA_API_TOKEN');
             $baseUrl = env('AREWA_BASE_URL', 'https://arewa-api.com/api');
 
             $response = Http::withToken($apiToken)
-                ->withoutVerifying()
                 ->timeout(60)
                 ->post("{$baseUrl}/bvn/crm", [
                     'field_code' => $serviceField->field_code,
@@ -199,29 +216,18 @@ class BvncrmController extends Controller
                 'response'  => $decodedData
             ]);
 
-            // 10. Update records with API Result and Commit
+            // 10. Update records with API Result
             $apiReference = $decodedData['data']['reference'] ?? $reference;
             
             // If API returned a different reference, update the records
             if ($apiReference !== $reference) {
                 $transaction->update(['referenceId' => $apiReference]);
-                $agentService = AgentService::where('reference', $reference)->first();
-                if ($agentService) {
-                    $agentService->update(['reference' => $apiReference]);
-                }
+                $agentService->update(['reference' => $apiReference]);
             }
 
-            // Optionally update with API response info if needed, 
-            // but Transaction model doesn't have metadata column.
-            // We can store it in AgentService instead if needed.
             if (isset($decodedData['message'])) {
-                $agentService = AgentService::where('reference', $apiReference)->first();
-                if ($agentService) {
-                    $agentService->update(['comment' => $decodedData['message']]);
-                }
+                $agentService->update(['comment' => $decodedData['message']]);
             }
-
-            DB::commit();
 
             return redirect()->route('user.bvn-crm')->with([
                 'status'  => 'success',
@@ -229,18 +235,50 @@ class BvncrmController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            if (DB::transactionLevel() > 0) {
-                DB::rollBack();
-            }
-            Log::error('BVN CRM Store Exception', [
+            Log::error('BVN CRM API Call Exception', [
                 'user_id' => $user->id,
                 'error'   => $e->getMessage()
             ]);
 
-            return back()->with([
+            // Execute Refund
+            DB::beginTransaction();
+            try {
+                // Lock agent service and wallet
+                $lockedService = AgentService::where('id', $agentService->id)->lockForUpdate()->first();
+                if ($lockedService && !in_array($lockedService->status, ['failed', 'rejected'])) {
+                    $refundRef = 'REF_' . $lockedService->reference;
+                    $refundExists = Transaction::where('referenceId', $refundRef)->where('type', 'credit')->exists();
+                    if (!$refundExists) {
+                        $lockedWallet = Wallet::where('user_id', $user->id)->lockForUpdate()->first();
+                        if ($lockedWallet) {
+                            $lockedWallet->increment('balance', $servicePrice);
+                            Transaction::create([
+                                'referenceId'         => $refundRef,
+                                'user_id'             => $user->id,
+                                'amount'              => $servicePrice,
+                                'service_type'        => 'Refund',
+                                'service_description' => "Refund for failed BVN CRM Request: {$lockedService->reference}",
+                                'type'                => 'credit',
+                                'status'              => 'Approved',
+                                'payer_name'          => 'System Auto-Refund',
+                            ]);
+                        }
+                    }
+                    $lockedService->update([
+                        'status' => 'failed',
+                        'comment' => 'API Submission failed: ' . $e->getMessage() . ' (Refunded)'
+                    ]);
+                }
+                DB::commit();
+            } catch (\Exception $refundEx) {
+                DB::rollBack();
+                Log::error('BVN CRM Auto-Refund Error', ['error' => $refundEx->getMessage()]);
+            }
+
+            return redirect()->route('user.bvn-crm')->with([
                 'status'  => 'error',
-                'message' => $e->getMessage(),
-            ])->withInput();
+                'message' => 'Submission failed: ' . $e->getMessage() . '. Wallet refunded.',
+            ]);
         }
     }
 
@@ -252,7 +290,7 @@ class BvncrmController extends Controller
         $submission = AgentService::findOrFail($id);
 
         // Prevent checking status for completed/failed requests multiple times
-        if (in_array($submission->status, ['successful', 'failed'])) {
+        if (in_array($submission->status, ['successful', 'failed', 'rejected'])) {
             return back()->with([
                 'status'  => 'info',
                 'message' => "This request is already " . ucfirst($submission->status) . ".",
